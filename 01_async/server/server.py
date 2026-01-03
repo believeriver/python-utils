@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 import asyncio
 import asyncio.subprocess
 import shlex
@@ -138,6 +136,13 @@ class FetchLogAPIServer(object):
 
 
 if __name__ == '__main__':
+    """Sample
+    server$ python server.py 
+    server ('127.0.0.1', 8888)
+    {'time': '2026/01/04 07:12:07', 'client_ip': '127.0.0.1', 'name': 'user', 'num': '20', 'hostname': 'NAN'}
+    {'time': '2026/01/04 07:12:15', 'client_ip': '127.0.0.1', 'name': 'user', 'num': '20', 'hostname': 'NAN'}
+    {'time': '2026/01/04 07:12:35', 'client_ip': '127.0.0.1', 'name': 'user', 'num': '20', 'hostname': 'NAN'}
+    """
     ip = settings.SERVER_IP
     port = settings.SERVER_PORT
     base_command = settings.BASE_COMMAND
