@@ -1,0 +1,40 @@
+.financial-charts-container {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-title {
+    color: #e0e0e0;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+    border-left: 4px solid #00d0ff;
+    padding-left: 1rem;
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+}
+
+.chart-item {
+    background: rgba(20, 20, 30, 0.6);
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.chart-item h4 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    color: #a0a0b0;
+    font-size: 1rem;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -10,6 +10,18 @@ export interface CompanyInformation {
     updated_at: string;
 }
 
+export interface FinancialData {
+    fiscal_year: string;
+    sales: string | number;
+    operating_margin: number;
+    eps: number | null;
+    equity_ratio: number;
+    operating_cash_flow: number;
+    cash_and_equivalents: number;
+    dividend_per_share: number | null;
+    payout_ratio: number | null;
+}
+
 export interface Company {
     code: string;
     name: string;
@@ -20,15 +32,23 @@ export interface Company {
     information: CompanyInformation | null;
 }
 
+export interface CompanyDetails extends Company {
+    financials: FinancialData[];
+}
+
 interface CompanyState {
     companies: Company[];
+    selectedCompany: CompanyDetails | null;
     status: 'idle' | 'loading' | 'succeeded' | 'failed';
+    detailsStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
     error: string | null;
 }
 
 const initialState: CompanyState = {
     companies: [],
+    selectedCompany: null,
     status: 'idle',
+    detailsStatus: 'idle',
     error: null,
 };
 
@@ -36,6 +56,14 @@ export const fetchCompanies = createAsyncThunk(
     'company/fetchCompanies',
     async () => {
         const response = await axios.get<Company[]>('http://127.0.0.1:8000/api_irbank/companies/');
+        return response.data;
+    }
+);
+
+export const fetchCompanyDetails = createAsyncThunk(
+    'company/fetchCompanyDetails',
+    async (code: string) => {
+        const response = await axios.get<CompanyDetails>(`http://127.0.0.1:8000/api_irbank/companies/${code}/`);
         return response.data;
     }
 );
@@ -56,6 +84,17 @@ const companySlice = createSlice({
             .addCase(fetchCompanies.rejected, (state, action) => {
                 state.status = 'failed';
                 state.error = action.error.message || 'Failed to fetch companies';
+            })
+            .addCase(fetchCompanyDetails.pending, (state) => {
+                state.detailsStatus = 'loading';
+            })
+            .addCase(fetchCompanyDetails.fulfilled, (state, action) => {
+                state.detailsStatus = 'succeeded';
+                state.selectedCompany = action.payload;
+            })
+            .addCase(fetchCompanyDetails.rejected, (state, action) => {
+                state.detailsStatus = 'failed';
+                state.error = action.error.message || 'Failed to fetch company details';
             });
     },
 });
