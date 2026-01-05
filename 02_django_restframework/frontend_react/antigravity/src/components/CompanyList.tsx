@@ -46,14 +46,28 @@ const CompanyList: React.FC = () => {
                             </div>
                             <div className="company-name">{company.name}</div>
                             <div className="company-details">
-                                <div className="detail-item">
-                                    <span className="label">Dividend</span>
-                                    <span className="value">{company.dividend}%</span>
+                                <div className="detail-row">
+                                    <div className="detail-item">
+                                        <span className="label">Dividend</span>
+                                        <span className="value">{company.dividend}%</span>
+                                    </div>
+                                    <div className="detail-item">
+                                        <span className="label">Rank</span>
+                                        <span className="value">#{company.dividend_rank}</span>
+                                    </div>
                                 </div>
-                                <div className="detail-item">
-                                    <span className="label">Rank</span>
-                                    <span className="value">#{company.dividend_rank}</span>
-                                </div>
+                                <div className="update-time">{company.dividend_update}</div>
+                                
+                                {company.information && (
+                                    <div className="company-expanded-info">
+                                        <div className="info-badge">{company.information.industry}</div>
+                                        <p className="info-desc">{company.information.description}</p>
+                                        <div className="info-metrics">
+                                            <span>PER: {company.information.per}</span>
+                                            <span>PBR: {company.information.pbr}</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     );
