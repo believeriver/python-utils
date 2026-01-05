@@ -132,17 +132,52 @@
 }
 
 .chart-header {
+    margin-bottom: 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 1rem;
+}
+
+.header-main {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
-    padding: 0 1rem;
 }
 
 .chart-header h2 {
-    font-size: 1.5rem;
     margin: 0;
+    font-size: 1.8rem;
     color: #e0e0e0;
+}
+
+.company-info-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.metrics {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.metric-badge {
+    background: rgba(0, 208, 255, 0.1);
+    border: 1px solid rgba(0, 208, 255, 0.3);
+    color: #00d0ff;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.company-description {
+    margin: 0;
+    color: #8899a6;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    max-width: 800px;
 }
 
 .live-indicator {

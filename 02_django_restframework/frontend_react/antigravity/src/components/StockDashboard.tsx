@@ -13,7 +13,7 @@ const StockDashboard: React.FC = () => {
   const { data, status, error, selectedCode } = useAppSelector((state: RootState) => state.stock);
   const { selectedCompany, detailsStatus } = useAppSelector((state: RootState) => state.company);
   const [inputCode, setInputCode] = useState(selectedCode);
-  const [selectedRange, setSelectedRange] = useState('ALL');
+  const [selectedRange, setSelectedRange] = useState('1Y');
 
   useLayoutEffect(() => {
     // Sync local input with selected code
@@ -36,6 +36,12 @@ const StockDashboard: React.FC = () => {
                 break;
             case '5Y':
                 now.setFullYear(now.getFullYear() - 5);
+                break;
+            case '10Y':
+                now.setFullYear(now.getFullYear() - 10);
+                break;
+            case '20Y':
+                now.setFullYear(now.getFullYear() - 20);
                 break;
             case 'ALL':
             default:
@@ -64,7 +70,7 @@ const StockDashboard: React.FC = () => {
     }
   };
 
-  const ranges = ['1M', '3M', '1Y', '5Y', 'ALL'];
+  const ranges = ['1M', '3M', '1Y', '5Y', '10Y', '20Y', 'ALL'];
 
   return (
     <div className="dashboard-container">
@@ -113,8 +119,20 @@ const StockDashboard: React.FC = () => {
                 {status === 'succeeded' && data.length > 0 && (
                     <div className="chart-card">
                         <div className="chart-header">
-                            <h2>Performance: {selectedCode}</h2>
-                            <span className="live-indicator">● Live</span>
+                            <div className="header-main">
+                                <h2>{selectedCode}: {selectedCompany?.name || 'Loading...'}</h2>
+                                <span className="live-indicator">● Live</span>
+                            </div>
+                            {selectedCompany?.information && (
+                                <div className="company-info-bar">
+                                    <div className="metrics">
+                                        <span className="metric-badge">PER: {selectedCompany.information.per}x</span>
+                                        <span className="metric-badge">PBR: {selectedCompany.information.pbr}x</span>
+                                        <span className="metric-badge">Ind: {selectedCompany.information.industry}</span>
+                                    </div>
+                                    <p className="company-description">{selectedCompany.information.description}</p>
+                                </div>
+                            )}
                         </div>
                         <StockChart data={data} />
                     </div>
