@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import type { RootState } from '../app/store';
 import { fetchStockData, setStockCode } from '../features/stock/stockSlice';
@@ -13,27 +13,48 @@ const StockDashboard: React.FC = () => {
   const { data, status, error, selectedCode } = useAppSelector((state: RootState) => state.stock);
   const { selectedCompany, detailsStatus } = useAppSelector((state: RootState) => state.company);
   const [inputCode, setInputCode] = useState(selectedCode);
+  const [selectedRange, setSelectedRange] = useState('ALL');
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     // Sync local input with selected code
     setInputCode(selectedCode);
   }, [selectedCode]);
 
   useEffect(() => {
-    // Fetch both stock data and company details when selectedCode changes
-    // We check status to avoid double fetching on initial load if handled elsewhere,
-    // but here we want to react to selection changes.
-    // Ideally we should check if data for this code is already present or just fetch.
-    // For simplicity, we fetch when the component mounts or code changes.
-    if (selectedCode) {
-        if (status === 'idle' || data.length === 0 || selectedCode !== inputCode) {
-            // Note: Simplification, realistically we'd check if currently loaded data matches selectedCode
-             // But Redux state usually tracks "current" data.
+    // Function to calculate start date based on range
+    const getStartDate = (range: string): string | undefined => {
+        const now = new Date();
+        switch (range) {
+            case '1M':
+                now.setMonth(now.getMonth() - 1);
+                break;
+            case '3M':
+                now.setMonth(now.getMonth() - 3);
+                break;
+            case '1Y':
+                now.setFullYear(now.getFullYear() - 1);
+                break;
+            case '5Y':
+                now.setFullYear(now.getFullYear() - 5);
+                break;
+            case 'ALL':
+            default:
+                return undefined;
         }
-        dispatch(fetchStockData(selectedCode));
-        dispatch(fetchCompanyDetails(selectedCode));
+        return now.toISOString().split('T')[0];
+    };
+
+    if (selectedCode) {
+        const start = getStartDate(selectedRange);
+        dispatch(fetchStockData({ code: selectedCode, start }));
+        
+        // Only fetch company details if code changed (not range)
+        // Simplification: we might re-fetch details redundantly if we don't track prevCode
+        // But details don't depend on range, so we can optimize if needed.
+        // For now, let's just dispatch it. Ideally we should split this effect.
+         dispatch(fetchCompanyDetails(selectedCode));
     }
-  }, [dispatch, selectedCode]);
+  }, [dispatch, selectedCode, selectedRange]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +63,8 @@ const StockDashboard: React.FC = () => {
         // useEffect will handle the fetch
     }
   };
+
+  const ranges = ['1M', '3M', '1Y', '5Y', 'ALL'];
 
   return (
     <div className="dashboard-container">
@@ -74,6 +97,19 @@ const StockDashboard: React.FC = () => {
             <section className="chart-section">
                 {status === 'loading' && <div className="loading">Loading market data...</div>}
                 {status === 'failed' && <div className="error">Error: {error}</div>}
+                
+                <div className="range-selector">
+                    {ranges.map(range => (
+                        <button
+                            key={range}
+                            className={`range-button ${selectedRange === range ? 'active' : ''}`}
+                            onClick={() => setSelectedRange(range)}
+                        >
+                            {range}
+                        </button>
+                    ))}
+                </div>
+
                 {status === 'succeeded' && data.length > 0 && (
                     <div className="chart-card">
                         <div className="chart-header">

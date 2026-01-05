@@ -21,14 +21,30 @@ const initialState: StockState = {
   selectedCode: '9986', // Default to the example code provided
 };
 
+interface FetchStockParams {
+    code: string;
+    start?: string;
+}
+
 // Async thunk to fetch stock data
 export const fetchStockData = createAsyncThunk(
   'stock/fetchStockData',
-  async (code: string) => {
+  async (params: string | FetchStockParams) => {
     // Ideally this URL base should be in an env variable or config
     // Note: User provided http://127.0.0.1:8000/api_irbank/stock/9986/
     // We will dynamically insert the code.
-    const response = await axios.get<StockDataPoint[]>(`http://127.0.0.1:8000/api_irbank/stock/${code}/`);
+    let code: string;
+    let start: string | undefined;
+
+    if (typeof params === 'string') {
+        code = params;
+    } else {
+        code = params.code;
+        start = params.start;
+    }
+
+    const url = `http://127.0.0.1:8000/api_irbank/stock/${code}/` + (start ? `?start=${start}` : '');
+    const response = await axios.get<StockDataPoint[]>(url);
     return response.data;
   }
 );

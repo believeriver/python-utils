@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { fetchCompanies, type Company } from '../features/company/companySlice';
-import { setStockCode, fetchStockData } from '../features/stock/stockSlice';
+import { setStockCode } from '../features/stock/stockSlice';
 import './CompanyList.css';
 
 const CompanyList: React.FC = () => {
@@ -17,7 +17,7 @@ const CompanyList: React.FC = () => {
 
     const handleSelectCompany = (code: string) => {
         dispatch(setStockCode(code));
-        dispatch(fetchStockData(code));
+        // Selected range will be picked up by StockDashboard effect
     };
 
     if (status === 'loading') {
