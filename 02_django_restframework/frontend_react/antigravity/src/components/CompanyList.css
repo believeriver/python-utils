@@ -1,0 +1,107 @@
+.company-list-container {
+    background: rgba(20, 20, 30, 0.6);
+    border-radius: 16px;
+    padding: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    height: 600px;
+    display: flex;
+    flex-direction: column;
+}
+
+.company-list-container h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #e0e0e0;
+    font-size: 1.2rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 0.5rem;
+}
+
+.company-list {
+    overflow-y: auto;
+    flex-grow: 1;
+    padding-right: 5px;
+}
+
+/* Scrollbar styling */
+.company-list::-webkit-scrollbar {
+    width: 6px;
+}
+.company-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+.company-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.company-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.company-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-2px);
+}
+
+.company-card.selected {
+    background: rgba(0, 122, 255, 0.15);
+    border-color: #007aff;
+    box-shadow: 0 0 15px rgba(0, 122, 255, 0.2);
+}
+
+.company-info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.2rem;
+}
+
+.company-code {
+    font-family: 'Monaco', monospace;
+    color: #8899a6;
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.company-price {
+    font-weight: 700;
+    color: #00d0ff;
+}
+
+.company-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: #fff;
+}
+
+.company-details {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: #8899a6;
+}
+
+.detail-item {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.detail-item .value {
+    color: #e0e0e0;
+}
+
+.company-list-loading, .company-list-error {
+    text-align: center;
+    padding: 2rem;
+    color: #8899a6;
+}
