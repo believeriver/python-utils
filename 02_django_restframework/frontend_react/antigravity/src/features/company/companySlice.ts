@@ -55,7 +55,8 @@ const initialState: CompanyState = {
 export const fetchCompanies = createAsyncThunk(
     'company/fetchCompanies',
     async () => {
-        const response = await axios.get<Company[]>('http://127.0.0.1:8000/api_irbank/companies/');
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+        const response = await axios.get<Company[]>(`${baseUrl}/api_irbank/companies/`);
         return response.data;
     }
 );
@@ -63,7 +64,8 @@ export const fetchCompanies = createAsyncThunk(
 export const fetchCompanyDetails = createAsyncThunk(
     'company/fetchCompanyDetails',
     async (code: string) => {
-        const response = await axios.get<CompanyDetails>(`http://127.0.0.1:8000/api_irbank/companies/${code}/`);
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+        const response = await axios.get<CompanyDetails>(`${baseUrl}/api_irbank/companies/${code}/`);
         return response.data;
     }
 );

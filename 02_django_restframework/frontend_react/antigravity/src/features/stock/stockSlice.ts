@@ -43,7 +43,8 @@ export const fetchStockData = createAsyncThunk(
         start = params.start;
     }
 
-    const url = `http://127.0.0.1:8000/api_irbank/stock/${code}/` + (start ? `?start=${start}` : '');
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+    const url = `${baseUrl}/api_irbank/stock/${code}/` + (start ? `?start=${start}` : '');
     const response = await axios.get<StockDataPoint[]>(url);
     return response.data;
   }
