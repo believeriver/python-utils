@@ -11,7 +11,7 @@ import './StockDashboard.css';
 const StockDashboard: React.FC = () => {
   const dispatch = useAppDispatch();
   const { data, status, error, selectedCode } = useAppSelector((state: RootState) => state.stock);
-  const { selectedCompany, detailsStatus } = useAppSelector((state: RootState) => state.company);
+  const { selectedCompany, detailsStatus, companies } = useAppSelector((state: RootState) => state.company);
   const [inputCode, setInputCode] = useState(selectedCode);
   const [selectedRange, setSelectedRange] = useState('1Y');
 
@@ -21,31 +21,17 @@ const StockDashboard: React.FC = () => {
   }, [selectedCode]);
 
   useEffect(() => {
-    // Function to calculate start date based on range
     const getStartDate = (range: string): string | undefined => {
+        // ... (existing logic)
         const now = new Date();
         switch (range) {
-            case '1M':
-                now.setMonth(now.getMonth() - 1);
-                break;
-            case '3M':
-                now.setMonth(now.getMonth() - 3);
-                break;
-            case '1Y':
-                now.setFullYear(now.getFullYear() - 1);
-                break;
-            case '5Y':
-                now.setFullYear(now.getFullYear() - 5);
-                break;
-            case '10Y':
-                now.setFullYear(now.getFullYear() - 10);
-                break;
-            case '20Y':
-                now.setFullYear(now.getFullYear() - 20);
-                break;
-            case 'ALL':
-            default:
-                return undefined;
+            case '1M': now.setMonth(now.getMonth() - 1); break;
+            case '3M': now.setMonth(now.getMonth() - 3); break;
+            case '1Y': now.setFullYear(now.getFullYear() - 1); break;
+            case '5Y': now.setFullYear(now.getFullYear() - 5); break;
+            case '10Y': now.setFullYear(now.getFullYear() - 10); break;
+            case '20Y': now.setFullYear(now.getFullYear() - 20); break;
+            case 'ALL': default: return undefined;
         }
         return now.toISOString().split('T')[0];
     };
@@ -53,19 +39,31 @@ const StockDashboard: React.FC = () => {
     if (selectedCode) {
         const start = getStartDate(selectedRange);
         dispatch(fetchStockData({ code: selectedCode, start }));
-        
-        // Only fetch company details if code changed (not range)
-        // Simplification: we might re-fetch details redundantly if we don't track prevCode
-        // But details don't depend on range, so we can optimize if needed.
-        // For now, let's just dispatch it. Ideally we should split this effect.
-         dispatch(fetchCompanyDetails(selectedCode));
+        dispatch(fetchCompanyDetails(selectedCode));
     }
   }, [dispatch, selectedCode, selectedRange]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputCode !== selectedCode) {
-        dispatch(setStockCode(inputCode));
+    let targetCode = inputCode;
+    
+    // Check if input looks like a code (4 digits)
+    const isCode = /^\d{4}$/.test(inputCode);
+    
+    if (!isCode) {
+        // Search by name
+        const match = companies.find((c: any) => c.name.includes(inputCode));
+        if (match) {
+            targetCode = match.code;
+        } else {
+            // Optional: Handle no match
+            alert('No company found with that name');
+            return;
+        }
+    }
+
+    if (targetCode !== selectedCode) {
+        dispatch(setStockCode(targetCode));
         // useEffect will handle the fetch
     }
   };
@@ -91,7 +89,7 @@ const StockDashboard: React.FC = () => {
                         type="text" 
                         value={inputCode} 
                         onChange={(e) => setInputCode(e.target.value)}
-                        placeholder="Enter Stock Code"
+                        placeholder="Enter Code or Name"
                         className="stock-input"
                     />
                     <button type="submit" className="search-button">
