@@ -1,6 +1,12 @@
 import math
 from abc import ABCMeta, abstractmethod
 
+"""Open-Closed Principle Example
+開放閉鎖の原則(OCP: Open-Closed Principle)
+- ソフトウェアエンティティ(クラス、モジュール、関数など)は拡張に対して開かれており、修正に対して閉じられているべきである。
+- 新しい機能を追加する際に、既存のコードを変更することなく行えるようにする。
+"""
+
 class IEmployee(metaclass=ABCMeta):
     def __init__(self, _name: str):
         self.name = _name

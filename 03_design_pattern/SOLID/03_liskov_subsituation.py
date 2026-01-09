@@ -1,5 +1,10 @@
 from abc import ABCMeta, abstractmethod
 
+"""Liskov Substitution Principle Example
+リスコフの置換原則(LSP: Liskov Substitution Principle)
+- サブタイプは、その基底型と置換可能であるべきである
+"""
+
 
 class IShape(metaclass=ABCMeta):
     @abstractmethod

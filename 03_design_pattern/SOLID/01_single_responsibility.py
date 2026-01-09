@@ -1,3 +1,9 @@
+"""
+単一責任の原則(SRP: Single Responsibility Principle)
+- クラスは単一の責任のみを持つべきであり、その責任を完全にカプセル化するべきである。
+- 変更の理由が一つだけであるべき。
+"""
+
 class EmployeeData(object):
     def __init__(self, name: str, department: str):
         self.name = name
