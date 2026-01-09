@@ -3,6 +3,8 @@ import { useAppDispatch, useAppSelector } from '../app/hooks';
 import type { RootState } from '../app/store';
 import { fetchStockData, setStockCode } from '../features/stock/stockSlice';
 import { fetchCompanyDetails } from '../features/company/companySlice';
+import { logout } from '../features/auth/authSlice';
+import { useNavigate } from 'react-router-dom';
 import StockChart from './StockChart';
 import CompanyList from './CompanyList';
 import FinancialCharts from './FinancialCharts';
@@ -10,8 +12,10 @@ import './StockDashboard.css';
 
 const StockDashboard: React.FC = () => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { data, status, error, selectedCode } = useAppSelector((state: RootState) => state.stock);
   const { selectedCompany, detailsStatus, companies } = useAppSelector((state: RootState) => state.company);
+  const { token } = useAppSelector((state: RootState) => state.auth);
   const [inputCode, setInputCode] = useState(selectedCode);
   const [selectedRange, setSelectedRange] = useState('1Y');
 
@@ -75,6 +79,18 @@ const StockDashboard: React.FC = () => {
       <header className="dashboard-header">
         <h1>Stock Market Visualizer</h1>
         <p className="subtitle">Real-time data for market insights</p>
+        <div className="auth-controls">
+            {token ? (
+                <div className="user-info">
+                    <span>Logged in</span>
+                    <button className="auth-button logout" onClick={() => dispatch(logout())}>Logout</button>
+                </div>
+            ) : (
+                <div className="guest-info">
+                   <button className="auth-button login" onClick={() => navigate('/login')}>Login / Sign Up</button>
+                </div>
+            )}
+        </div>
       </header>
 
       <div className="dashboard-content">

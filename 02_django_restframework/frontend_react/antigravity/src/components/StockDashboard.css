@@ -22,6 +22,43 @@
 .dashboard-header {
     text-align: center;
     margin-bottom: 3rem;
+    position: relative;
+}
+
+.auth-controls {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+.auth-button {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    margin-left: 1rem;
+}
+
+.auth-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.auth-button.login {
+    background: #007aff;
+    border: none;
+}
+
+.auth-button.login:hover {
+    background: #0056b3;
+}
+
+.user-info span {
+    color: #8899a6;
+    font-size: 0.9rem;
 }
 
 .dashboard-header h1 {
