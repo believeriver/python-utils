@@ -4,3 +4,6 @@ git_settings.txt
 01_async/clients/config/__pycache__/
 01_async/clients/tools/__pycache__/
 01_async/server/config/__pycache__/
+02_django_restframework/api_matsumoto/first_rest_project/api/__pycache__/
+02_django_restframework/api_matsumoto/first_rest_project/first_rest_project/__pycache__/
+
