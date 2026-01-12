@@ -1,6 +1,8 @@
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
-from datetime import datetime
+from datetime import datetime, timezone
+import pytz
+
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
@@ -16,9 +18,21 @@ def json_example(request):
     return JsonResponse(data)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 def country_datetime(request):
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    request_data = request.data.get('timezone')
+    print(request.method)
+    if request.method == 'POST':
+        tz = pytz.timezone(request_data)
+        utc_datetime = datetime.now(timezone.utc)
+        return Response({
+            "country": request_data,
+            "current_datetime_in_requested_timezone": utc_datetime.astimezone(tz).strftime("%Y-%m-%d %H:%M:%S")
+        })
+
+    request_param = request.query_params.get('timezone')
+    print(request_param)
     data = {
         "country": "Japan",
         "current_datetime": current_time

@@ -1,9 +1,16 @@
 git_settings.txt
 .idea/
 01_async/server/log/
-01_async/clients/config/__pycache__/
-01_async/clients/tools/__pycache__/
-01_async/server/config/__pycache__/
-02_django_restframework/api_matsumoto/first_rest_project/api/__pycache__/
-02_django_restframework/api_matsumoto/first_rest_project/first_rest_project/__pycache__/
+01_async/clients/config/__pycache__/*
+01_async/clients/tools/__pycache__/*
+01_async/server/config/__pycache__/*
+02_django_restframework/api_matsumoto/first_rest_project/api/__pycache__/*
+02_django_restframework/api_matsumoto/first_rest_project/first_rest_project/__pycache__/*
+02_django_restframework/api_matsumoto/first_rest_project/db.sqlite3
+02_django_restframework/api_matsumoto/first_rest_project/api/migrations/__pycache__/*
+02_django_restframework/api_matsumoto/first_rest_project/api/migrations/*
+02_django_restframework/api_matsumoto/first_rest_project/api/tests/__pycache__/*
+02_django_restframework/api_matsumoto/first_rest_project/api/tests/test_files/__pycache__/*
+02_django_restframework/api_matsumoto/first_rest_project/api/tests/test_files/*.sqlite3
+02_django_restframework/api_matsumoto/first_rest_project/api/tests/test_files/*.pyc
 
