@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
+from .serializers import ItemSerializer
 
 class ItemView(APIView):
     def get(self, request):
@@ -13,6 +14,11 @@ class ItemView(APIView):
 
     def post(self, request):
         item = request.data.get('item')
+        serializer = ItemSerializer(data=request.data)
+        print(serializer)
+        print(serializer.is_valid(raise_exception=True))
+        print(serializer.errors)
+
         return Response(
             {"message": f"Item '{item}' created successfully."},
             status=status.HTTP_201_CREATED)
