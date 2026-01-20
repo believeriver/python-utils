@@ -1,10 +1,16 @@
 from rest_framework import serializers
 
 
+def check_divide_by_10(value):
+    if value % 10 != 0:
+        raise serializers.ValidationError("Value must be a multiple of 10.")
+    return value
+
 class ItemSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=20)
     price = serializers.IntegerField(min_value=0)
-    discount = serializers.IntegerField(min_value=0, required=False)
+    discount = serializers.IntegerField(
+        min_value=0, required=False, validators=[check_divide_by_10])
 
     def validate_name(self, value):
         print(f"validate_name: {value}")

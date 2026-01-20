@@ -11,7 +11,7 @@ print("POST Response:")
 data = {
     "name": "nNewItem",
     "price": 100,
-    "discount": 110
+    "discount": 115
 }
 response = requests.post(url, data=data)
 print(response.status_code)

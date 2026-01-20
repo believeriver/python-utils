@@ -6,6 +6,9 @@ from rest_framework import status
 from .serializers import ItemSerializer
 
 class ItemView(APIView):
+
+    serializer_class = ItemSerializer
+
     def get(self, request):
         data = {
             "items": ["item1", "item2", "item3"]
@@ -14,7 +17,7 @@ class ItemView(APIView):
 
     def post(self, request):
         item = request.data.get('item')
-        serializer = ItemSerializer(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         print(serializer)
         print(serializer.is_valid(raise_exception=True))
         print(serializer.errors)
