@@ -8,6 +8,7 @@ def check_divide_by_10(value):
     return value
 
 class ItemSerializer(serializers.Serializer):
+    pk = serializers.IntegerField(read_only=True)
     name = serializers.CharField(max_length=20)
     price = serializers.IntegerField(min_value=0)
     discount = serializers.IntegerField(

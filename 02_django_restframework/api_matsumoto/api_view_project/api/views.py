@@ -48,3 +48,21 @@ class ItemView(APIView):
         return Response(
             {"message": f"Item '{item}' deleted successfully."},
             status=status.HTTP_200_OK)
+
+
+class ItemDetailView(APIView):
+
+    serializer_class = ItemSerializer
+
+    def get(self, request, pk):
+        try:
+            item = Item.objects.get(pk=pk)
+        except Item.DoesNotExist:
+            return Response(
+                {"error": "Item not found."},
+                status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.serializer_class(item)
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK)
