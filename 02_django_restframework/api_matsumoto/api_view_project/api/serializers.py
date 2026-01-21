@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from . models import Item
 
 
 def check_divide_by_10(value):
@@ -34,4 +35,15 @@ class ItemSerializer(serializers.Serializer):
         if discount and discount >= price:
             raise serializers.ValidationError("Discount must be less than the price.")
         return data
+
+    def create(self, validated_data):
+        print(f"serializer create: {validated_data}")
+        return Item.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        print(f"serializer update: {validated_data}")
+        # instance.name = validated_data.get('name', instance.name)
+        # instance.price = validated_data.get('price', instance.price)
+        # instance.discount = validated_data.get('discount', instance.discount)
+        return instance
 
