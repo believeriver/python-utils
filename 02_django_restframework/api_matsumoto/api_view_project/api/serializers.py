@@ -43,8 +43,10 @@ class ItemSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         print(f"serializer update: {validated_data}")
-        # instance.name = validated_data.get('name', instance.name)
-        # instance.price = validated_data.get('price', instance.price)
-        # instance.discount = validated_data.get('discount', instance.discount)
+        instance.name = validated_data.get('name', instance.name)
+        instance.price = validated_data.get('price', instance.price)
+        instance.discount = validated_data.get('discount', instance.discount)
+
+        instance.save()
         return instance
 
