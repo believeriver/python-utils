@@ -99,3 +99,12 @@ class ItemDetailView(APIView):
             {"message": "Item deleted successfully."},
             status=status.HTTP_204_NO_CONTENT)
 
+    def patch(self, request, pk):
+        item = Item.objects.get(pk=pk)
+        serializer = self.serializer_class(item, data=request.data, partial=True)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(
+                serializer.data,
+                status=status.HTTP_200_OK)
+
