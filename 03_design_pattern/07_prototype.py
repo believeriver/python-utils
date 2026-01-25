@@ -31,7 +31,7 @@ class ItemPrototype(ABC):
         self.__review: List[str] = []
 
     def __str__(self):
-        return f"Item(name={self.__name})"
+        return f"Item(name={self.__name}): reviews={self.__review}"
 
     def set_review(self, _review: str):
         self.__review.append(_review)
@@ -78,10 +78,19 @@ if __name__ == "__main__":
     item2.set_review("Excellent item.")
     manager.register_item("item2", item2)
 
-    cloned_item1 = manager.create("item1")
-    cloned_item2 = manager.create("item2")
+    print(f'original item1: {item1}')
+    print(f'original item2: {item2}')
 
-    print(cloned_item1)
-    print(cloned_item2)
+    print('--- cloning items ---')
+
+    cloned_item1 = manager.create("item1")
+    cloned_item1.set_review("Cloned review for shallow item.")
+    cloned_item2 = manager.create("item2")
+    cloned_item2.set_review("Cloned review for deep item.")
+
+    print(f'original item1: {item1}')
+    print(f'original item2: {item2}')
+    print(f'cloned item1:{cloned_item1}')
+    print(f'cloned item2:{cloned_item2}')
 
     gc.collect()
