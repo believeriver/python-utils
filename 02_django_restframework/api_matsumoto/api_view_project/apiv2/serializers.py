@@ -23,6 +23,9 @@ class ItemModelSerializer(serializers.ModelSerializer):
         # fields = '__all__'
         fields = ('id', 'name', 'price', 'discount')
         read_only_fields = ('id',)
+        extra_kwargs = {
+            'name': {'write_only': True, 'required': False},
+        }
 
     def validate_name(self, value):
         if self.partial and value is None:
