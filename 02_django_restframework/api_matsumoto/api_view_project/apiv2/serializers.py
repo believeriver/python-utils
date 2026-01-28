@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from rest_framework.serializers import UniqueTogetherValidator
+
 from api.models import Item
 
 
@@ -23,9 +25,16 @@ class ItemModelSerializer(serializers.ModelSerializer):
         # fields = '__all__'
         fields = ('id', 'name', 'price', 'discount')
         read_only_fields = ('id',)
-        extra_kwargs = {
-            'name': {'write_only': True, 'required': False},
-        }
+        # extra_kwargs = {
+        #     'name': {'write_only': True, 'required': False},
+        # }
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Item.objects.all(),
+                fields=['name', 'price'],
+                message="An item with this name and price already exists.")
+        ]
+
 
     def validate_name(self, value):
         if self.partial and value is None:
@@ -46,8 +55,24 @@ class ItemModelSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         print(f"validate: {data}")
-        discount = data.get('discount', self.instance.discount if self.instance.discount is not None else 0)
-        price = data.get('price', self.instance.price if self.instance.price is not None else 0)
+        # discount = data.get(
+        #     'discount',
+        #     getattr(self.instance.discount,'discount',0) if self.instance.discount is not None else 0)
+        # price = data.get(
+        #     'price',
+        #     getattr(self.instance.price, 'price', 0) if self.instance.price is not None else 0)
+
+        # 最初に既存の値を安全に取得
+        discount = data.get('discount')
+        if discount is None and self.instance is not None:
+            discount = getattr(self.instance, 'discount', 0)
+
+        price = data.get('price')
+        if price is None and self.instance is not None:
+            price = getattr(self.instance, 'price', 0)
+
+        # discount = data.get('discount') or (getattr(self.instance, 'discount', 0) if self.instance else 0)
+        # price = data.get('price') or (getattr(self.instance, 'price', 0) if self.instance else 0)
         if discount and discount >= price:
             raise serializers.ValidationError("Discount must be less than the price.")
         return data
