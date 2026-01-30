@@ -32,7 +32,7 @@ class ItemModelSerializer(serializers.ModelSerializer):
             UniqueTogetherValidator(
                 queryset=Item.objects.all(),
                 fields=['name', 'price'],
-                message="An item with this name and price already exists.")
+                message="The combination of name and price must be unique.")
         ]
 
 

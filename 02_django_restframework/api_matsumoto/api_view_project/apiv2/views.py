@@ -2,8 +2,10 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework import permissions
 
 from .serializers import ItemModelSerializer
+from .permissions import CustomPermission
 from api.models import Item
 
 """
@@ -14,6 +16,19 @@ create, updateの実装が必要なくなる
 class ItemModelView(APIView):
 
     serializer_class = ItemModelSerializer
+
+    """
+    AllowAny: 認証不要
+    IsAuthenticated: 認証済みユーザーのみ
+    IsAdminUser: 管理者ユーザーのみ
+    IsAuthenticatedOrReadOnly: 認証済みユーザーは読み書き可能、未認証ユーザーは読み取り専用
+    などがある
+    user: admin
+    mail: admin@mail.com
+    pass: admin
+    """
+    # permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [CustomPermission]
 
     def get(self, request):
         item = Item.objects.all()
