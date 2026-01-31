@@ -19,6 +19,15 @@ class UserModelSerializer(serializers.ModelSerializer):
         # read_only_fields = ('id', 'username', 'email')
         extra_kwargs = {'password': {'write_only': True}}
 
+    #passwordをハッシュ化して保存
+    def create(self, validated_data):
+        user = get_user_model().objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password']
+        )
+        return user
+
 
 def check_divide_by_10(value):
     if value % 10 != 0:
