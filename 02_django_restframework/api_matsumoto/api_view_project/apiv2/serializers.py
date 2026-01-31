@@ -1,7 +1,23 @@
 from rest_framework import serializers
 from rest_framework.serializers import UniqueTogetherValidator
+from django.contrib.auth import get_user_model
 
-from api.models import Item
+from api.models import Item, Product
+
+
+class ProductModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ('id', 'name', 'price', 'user')
+        read_only_fields = ('id',)
+
+
+class UserModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = ('id', 'username', 'email', 'password')
+        # read_only_fields = ('id', 'username', 'email')
+        extra_kwargs = {'password': {'write_only': True}}
 
 
 def check_divide_by_10(value):
