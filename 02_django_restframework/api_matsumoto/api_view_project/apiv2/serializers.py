@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework.serializers import UniqueTogetherValidator
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 
 from api.models import Item, Product
 
@@ -103,3 +103,23 @@ class ItemModelSerializer(serializers.ModelSerializer):
         return data
 
 
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField(write_only=True)
+    password = serializers.CharField(style={'input_type': 'password'},write_only=True)
+
+    def validate(self, data):
+        username = data.get('username')
+        password = data.get('password')
+
+        if username and password:
+            # user = get_user_model().objects.filter(username=username).first()
+            user = authenticate(
+                request=self.context.get('request'),
+                username=username, password=password)
+            if user is None or not user.check_password(password):
+                raise serializers.ValidationError("Invalid username or password.")
+        else:
+            raise serializers.ValidationError("Both username and password are required.")
+
+        data['user'] = user
+        return data

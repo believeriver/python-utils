@@ -1,11 +1,12 @@
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, login
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 from rest_framework import permissions
 
-from .serializers import ItemModelSerializer, UserModelSerializer, ProductModelSerializer
+from .serializers import (
+    ItemModelSerializer, UserModelSerializer, ProductModelSerializer, LoginSerializer)
 from .permissions import CustomPermission
 from api.models import Item, Product
 
@@ -139,5 +140,30 @@ class ProductModelDetailView(BaseDetailView):
 class UserModelDetailView(BaseDetailView):
     serializer_class = UserModelSerializer
     model = get_user_model()
+
+
+class LoginAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = LoginSerializer
+
+    def post(self, request):
+        serializer = self.serializer_class(
+            data=self.request.data, context={'request': self.request})
+        if serializer.is_valid(raise_exception=True):
+            user = serializer.validated_data['user']
+            login(request, user)
+            return Response(
+                {
+                    "message": "Login successful.",
+                    "user_id": user.id,
+                    "username": user.username,
+                },
+                status=status.HTTP_200_OK
+            )
+        return Response(
+            {"error": "Invalid credentials."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
 
 
