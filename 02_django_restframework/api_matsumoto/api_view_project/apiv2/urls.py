@@ -12,4 +12,5 @@ urlpatterns = [
     path('product/', views.ProductModelView.as_view(), name='product-model'),
     path('product/<int:pk>/', views.ProductModelDetailView.as_view(), name='product-model-detail'),
     path('login/', views.LoginAPIView.as_view(), name='login'),
+    path('logout/', views.LogoutAPIView.as_view(), name='logout'),
 ]
