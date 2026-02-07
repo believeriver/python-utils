@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 from . import views
 
@@ -27,3 +27,19 @@ class CustomPermission(BasePermission):
         if request.method == "GET":
             return True
         return False
+
+
+class ProductPermission(BasePermission):
+    """
+    Custom permission to only allow owners of an object to edit it.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        # Read permissions are allowed to any request,
+        # so we'll always allow GET, HEAD or OPTIONS requests.
+        # if request.method in ('PUT', 'PATCH', 'DELETE'):
+        if request.method not in SAFE_METHODS:
+            return obj.user == request.user
+        return True
+
+

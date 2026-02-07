@@ -7,7 +7,7 @@ from rest_framework import permissions
 
 from .serializers import (
     ItemModelSerializer, UserModelSerializer, ProductModelSerializer, LoginSerializer)
-from .permissions import CustomPermission
+from .permissions import CustomPermission, ProductPermission
 from api.models import Item, Product
 
 """
@@ -80,9 +80,15 @@ class BaseDetailView(APIView):
             serializer.data,
             status=status.HTTP_200_OK)
 
+    def get_object(self, request, pk):
+        obj = self.model.objects.get(pk=pk)
+        self.check_object_permissions(request, obj)
+        return obj
+
     def put(self, request, pk):
         try:
-            objects = self.model.objects.get(pk=pk)
+            # objects = self.model.objects.get(pk=pk)
+            objects = self.get_object(request, pk)
         except Item.DoesNotExist:
             return Response(
                 {"error": "Item not found."},
@@ -101,7 +107,8 @@ class BaseDetailView(APIView):
 
     def delete(self, request, pk):
         try:
-            objects = self.model.objects.get(pk=pk)
+            # objects = self.model.objects.get(pk=pk)
+            objects = self.get_object(request, pk)
         except Item.DoesNotExist:
             return Response(
                 {"error": "Item not found."},
@@ -113,7 +120,8 @@ class BaseDetailView(APIView):
             status=status.HTTP_204_NO_CONTENT)
 
     def patch(self, request, pk):
-        objects = self.model.objects.get(pk=pk)
+        # objects = self.model.objects.get(pk=pk)
+        objects = self.get_object(request, pk)
         serializer = self.serializer_class(objects, data=request.data, partial=True)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
@@ -135,6 +143,27 @@ class ItemModelDetailView(BaseDetailView):
 class ProductModelDetailView(BaseDetailView):
     serializer_class = ProductModelSerializer
     model = Product
+    permission_classes = [ProductPermission,]
+
+    # def put(self, request, pk):
+    #     try:
+    #         objects = self.model.objects.get(pk=pk)
+    #         self.check_object_permissions(request, objects)
+    #     except Item.DoesNotExist:
+    #         return Response(
+    #             {"error": "Item not found."},
+    #             status=status.HTTP_404_NOT_FOUND)
+    #
+    #     serializer = self.serializer_class(objects, data=request.data)
+    #     if serializer.is_valid(raise_exception=True):
+    #         serializer.save()
+    #         return Response(
+    #             serializer.data,
+    #             status=status.HTTP_200_OK)
+    #
+    #     return Response(
+    #         {"error": "Failed to update item."},
+    #         status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserModelDetailView(BaseDetailView):
