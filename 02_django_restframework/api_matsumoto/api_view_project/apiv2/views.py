@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model, login, logout
 from django.shortcuts import render
+from rest_framework.authentication import TokenAuthentication
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, viewsets
@@ -144,6 +145,7 @@ class ProductModelDetailView(BaseDetailView):
     serializer_class = ProductModelSerializer
     model = Product
     permission_classes = [ProductPermission,]
+    authentication_classes = [TokenAuthentication]
 
     # def put(self, request, pk):
     #     try:
