@@ -14,4 +14,9 @@ git_settings.txt
 02_django_restframework/api_matsumoto/first_rest_project/api/tests/test_files/*.sqlite3
 02_django_restframework/api_matsumoto/first_rest_project/api/tests/test_files/*.pyc
 02_django_restframework/api_matsumoto/api_view_project/api_view_project/__pycache__/
+02_django_restframework/api_matsumoto/tweet_api_project/apiv1/__pycache__/
+02_django_restframework/api_matsumoto/tweet_api_project/apiv1/migrations/
+02_django_restframework/api_matsumoto/tweet_api_project/db.sqlite3
+02_django_restframework/api_matsumoto/tweet_api_project/tweet_api_project/__pycache__/
+
 
