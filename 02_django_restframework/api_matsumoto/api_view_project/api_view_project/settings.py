@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 
+import drf_spectacular
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -41,6 +43,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'api',
     'apiv2',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -126,7 +129,16 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-DEFAULT_PERMISSION_CLASSES = [
-    'rest_framework.permissions.IsAuthenticatedOrReadOnly',
-]
+# DEFAULT_PERMISSION_CLASSES = [
+#     'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+# ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}

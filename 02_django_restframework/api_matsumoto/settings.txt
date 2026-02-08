@@ -2,3 +2,8 @@
 python manage.py startapp api
 
 pip install djangorestframework
+
+admin
+admin
+
+pip install drf-spectacular
