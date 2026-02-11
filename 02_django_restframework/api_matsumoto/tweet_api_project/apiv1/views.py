@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from django.contrib.auth import login
 
 from .serializers import UserRegisterSerializer, UserLoginSerializer, TweetSerializer
+from .permissions import TweetUpdateDeletePermission
 
 import os
 import sys
@@ -75,3 +76,52 @@ class TweetListView(APIView):
                 status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TweetUpdateDetailView(APIView):
+    serializer_class = TweetSerializer
+    permission_classes = [TweetUpdateDeletePermission]
+
+    def get_object(self, request, pk):
+        try:
+            obj = Tweet.objects.get(pk=pk)
+            self.check_object_permissions(request, obj)
+            return obj
+        except Tweet.DoesNotExist:
+            return None
+
+    # def get(self, request, pk):
+    #     tweet = self.get_object(pk)
+    #     if not tweet:
+    #         return Response({"error": "Tweet not found."}, status=status.HTTP_404_NOT_FOUND)
+    #
+    #     serializer = self.serializer_class(tweet)
+    #     return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request, pk):
+        tweet = self.get_object(request, pk)
+        if not tweet:
+            return Response({"error": "Tweet not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.serializer_class(tweet, data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            updated_tweet = serializer.save()
+            return Response(
+                {
+                    "message": "Tweet updated successfully.",
+                    "tweet": self.serializer_class(updated_tweet).data
+                },
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        tweet = self.get_object(request, pk)
+        if not tweet:
+            return Response({"error": "Tweet not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        tweet.delete()
+        return Response(
+            {"message": "Tweet deleted successfully."},
+            status=status.HTTP_200_OK
+        )

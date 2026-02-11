@@ -56,8 +56,8 @@ class UserLoginSerializer(serializers.Serializer):
 class TweetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tweet
-        fields = ('content', 'created_at')
-        read_only_fields = ('created_at',)
+        fields = ('id', 'content', 'created_at')
+        read_only_fields = ('id', 'created_at',)
 
     def create(self, validated_data):
         tweet = Tweet.objects.create(
