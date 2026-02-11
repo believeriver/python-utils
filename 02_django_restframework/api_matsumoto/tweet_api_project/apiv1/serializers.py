@@ -1,7 +1,15 @@
 from django.contrib.auth import get_user_model, authenticate
 from rest_framework import serializers
 
-# from  tweet_api_project.model import Tweet# Replace with your Tweet model
+import os
+import sys
+
+dir_path = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+print({'Project path': dir_path})
+sys.path.insert(0, dir_path)
+
+from  tweet_api_project.models import Tweet# Replace with your Tweet model
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -45,9 +53,15 @@ class UserLoginSerializer(serializers.Serializer):
         return data
 
 
-# class TweetSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = get_user_model()  # Replace with your Tweet model
-#         fields = ['id', 'content', 'created_at', 'author']  # Adjust fields as necessary
-#         read_only_fields = ['id', 'created_at', 'author']
+class TweetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tweet
+        fields = ('content', 'created_at')
+        read_only_fields = ('created_at',)
 
+    def create(self, validated_data):
+        tweet = Tweet.objects.create(
+            content=validated_data['content'],
+            user=self.context.get('user'),
+        )
+        return tweet
