@@ -21,4 +21,5 @@ from django.views.generic import TemplateView
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('user_comment', TemplateView.as_view(template_name='user_comment.html'), name='user_comment'),
+    path('login', TemplateView.as_view(template_name='login.html'), name='login'),
 ]

@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script>
+        console.log('Fetching tweets...');
+        console.log('token:', localStorage.getItem('token')); // Check if the token is stored correctly
         $.ajax({
             url: 'http://127.0.0.1:8000/api/v1/tweets/',
             type: 'GET',

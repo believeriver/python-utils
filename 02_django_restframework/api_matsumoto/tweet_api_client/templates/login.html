@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <title>Title</title>
+</head>
+<body>
+    <form id="login-form">
+        <input type="text" id="username" placeholder="Username" required>
+        <input type="password" id="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+    </form>
+
+    <script>
+        $('#login-form').on('submit', function(event) {
+            event.preventDefault();
+            const username = $('#username').val();
+            const password = $('#password').val();
+
+            $.ajax({
+                url: 'http://127.0.0.1:8000/api/v1/api-token-auth/',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ username: username, password: password }),
+                success: function(data) {
+                    console.log('Login successful:', data);
+                    // Store the token in localStorage or a cookie
+                    localStorage.setItem('token', data.token);
+                    window.location.href = 'http://127.0.0.1:8080/user_comment'; // Redirect to the comments page
+                },
+                error: function(xhr, status, error) {
+                    console.error('Login failed:', error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
