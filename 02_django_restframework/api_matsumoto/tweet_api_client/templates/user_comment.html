@@ -6,6 +6,28 @@
     <script>
         console.log('Fetching tweets...');
         console.log('token:', localStorage.getItem('token')); // Check if the token is stored correctly
+        function updateTweet(tweetId) {
+            console.log('Updating tweet with ID:', tweetId);
+            newTweetContent = $('#tweet_' + tweetId).val();
+            console.log('New content:', newTweetContent);
+            $.ajax({
+                url: 'http://127.0.0.1:8000/api/v1/tweets/' + tweetId + '/',
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({ content: newTweetContent }),
+                headers: {
+                    'Authorization': 'Token ' + localStorage.getItem('token') // Include the token in the header
+                },
+                success: function(data) {
+                    console.log('Tweet updated successfully:', data);
+                    alert('Tweet updated successfully!');
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error updating tweet:', error);
+                    alert('Error updating tweet: ' + error);
+                }
+            });
+        }
         $.ajax({
             url: 'http://127.0.0.1:8000/api/v1/tweets/',
             type: 'GET',
@@ -13,7 +35,17 @@
             success: function(data) {
                 console.log(data);
                 data.forEach(function(tweet) {
-                    $('#comments-list').append('<li>' + tweet.content + '</li>');
+                    $('#comments-list').append("<li>"
+                    + "<input type=text id=tweet_"
+                    + tweet.id
+                    + " value='"
+                    + tweet.content
+                    + "'></input> "
+                    + tweet.id
+                    + " <input type=button value='Update' onclick=updateTweet("
+                    + tweet.id
+                    + ")>"
+                    + "</li>");
                 });
             },
             error: function(xhr, status, error) {
