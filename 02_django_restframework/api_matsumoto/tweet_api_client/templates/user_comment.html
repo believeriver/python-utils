@@ -9,18 +9,21 @@
             type: 'GET',
             dataType: 'json',
             success: function(data) {
-                var commentsList = $('#comments-list');
-                data.forEach(function(comment) {
-                    commentsList.append('<li>' + comment.text + '</li>');
+                console.log(data);
+                data.forEach(function(tweet) {
+                    $('#comments-list').append('<li>' + tweet.content + '</li>');
                 });
+            },
+            error: function(xhr, status, error) {
+                console.error('Error fetching tweets:', error);
+            }
+        });
     </script>
     <title>Title</title>
 </head>
 <body>
-    <ul>
-        {% for comment in comments %}
-            <li>{{ comment.text }}</li>
-        {% endfor %}
+    <ul id="comments-list">
+
     </ul>
 </body>
 </html>
