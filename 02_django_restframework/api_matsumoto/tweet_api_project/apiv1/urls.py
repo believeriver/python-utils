@@ -9,4 +9,5 @@ urlpatterns = [
     path('api-token-auth/', token_views.obtain_auth_token, name='api-token-auth'),
     path('tweets/<int:pk>/', views.TweetUpdateDetailView.as_view(), name='tweet-update-delete'),
     # path('user/login/', views.UserLoginView.as_view(), name='user-login'),
+    path('login_cookie/', views.login_cookie, name='login-cookie'),
 ]
