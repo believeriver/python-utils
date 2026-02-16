@@ -28,6 +28,30 @@
                 }
             });
         }
+
+        function delteTweet(tweetId) {
+            console.log('Deleting tweet with ID:', tweetId);
+            $.ajax({
+                url: 'http://127.0.0.1:8000/api/v1/tweets/' + tweetId + '/',
+                type: 'DELETE',
+                headers: {
+                    'Authorization': 'Token ' + localStorage.getItem('token') // Include the token in the header
+                },
+                success: function(data) {
+                    console.log('Tweet deleted successfully:', data);
+                    alert('Tweet deleted successfully!');
+                    $('#tweet_' + tweetId).parent().remove(); // Remove the tweet from the list
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error deleting tweet:', error);
+                    alert('Error deleting tweet: ' + error);
+                }
+            }).done(function() {;
+                console.log('Delete request completed for tweet ID:', tweetId);
+                window.location.reload(); // Refresh the page to reflect the changes
+            });
+        }
+
         $.ajax({
             url: 'http://127.0.0.1:8000/api/v1/tweets/',
             type: 'GET',
@@ -43,6 +67,9 @@
                     + "'></input> "
                     + tweet.id
                     + " <input type=button value='Update' onclick=updateTweet("
+                    + tweet.id
+                    + ")>"
+                    + " <input type=button value='Delete' onclick=delteTweet("
                     + tweet.id
                     + ")>"
                     + "</li>");
