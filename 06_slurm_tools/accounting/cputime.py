@@ -37,7 +37,9 @@ class Config(object):
     SSH_HOST = "192.168.64.2"
     SSH_USER = "root"
 
+    # Classification keywords
     INTERACTIVE_KEYWORDS = ["--pty", "salloc"]
+    GPUS_KEYWORD = ["gpu", "gres/gpu"]
     UNKNOWN_AS_CPU_BILLING = True
 
     # Policy switches (easy to flip later)
@@ -258,6 +260,34 @@ class DatasetCpuBuilder(IDatasetBuilderBase):
 # -----------------------------
 # Template Method: Calculator
 # -----------------------------
+class Classifier(object):
+    def __init__(self, keywords):
+        self.keywords = [k.lower() for k in keywords]
+
+    def is_interactive(self, submitline):
+        if not submitline:
+            return None
+        s = submitline.lower()
+        for k in self.keywords:
+            if k in s:
+                return True
+        return False
+
+
+class CpuStepSummer(object):
+    """単純責務：stepのCPUを合算する（ここを差し替えるのも簡単）"""
+
+    def sum_steps(self, step_rows):
+        total = 0.0
+        user = 0.0
+        sysc = 0.0
+        for r in step_rows:
+            total += SlurmTime.to_seconds(r.get("TotalCPU", ""))
+            user += SlurmTime.to_seconds(r.get("UserCPU", ""))
+            sysc += SlurmTime.to_seconds(r.get("SystemCPU", ""))
+        return {"TotalCPU_s": total, "UserCPU_s": user, "SystemCPU_s": sysc}
+
+
 class ICalculatorBase(ABC):
     """
         Template Method:
@@ -270,11 +300,11 @@ class ICalculatorBase(ABC):
         self.log = logger
 
     @abstractmethod
-    def calculate(self, jobid, parent_row, step_rows, context):
+    def calculate(self, jobid, parent_row, step_rows):
         pass
 
     @abstractmethod
-    def select_cpu_source(self, parent_row, step_rows, context):
+    def select_cpu_source(self, parent_row, step_rows):
         """
         Default: steps exist => sum steps, else parent.
         Return: string: "steps" or "parent", and cpu_sums dict if steps, or parent cpu fields if parent.
@@ -282,25 +312,74 @@ class ICalculatorBase(ABC):
         pass
 
     @abstractmethod
-    def compute_raw(self, jobid, parent_row, step_rows, context):
+    def compute_raw(self, jobid, parent_row, step_rows):
         pass
 
     @abstractmethod
-    def build_final_row(self, parent_row, cpu_sums, context):
+    def build_final_row(self, parent_row, cpu_sums):
         pass
 
 
-class CpuStepSummer(object):
-    """単純責務：stepのCPUを合算する（ここを差し替えるのも簡単）"""
-    def sum_steps(self, step_rows):
-        total = 0.0
-        user = 0.0
-        sysc = 0.0
-        for r in step_rows:
-            total += SlurmTime.to_seconds(r.get("TotalCPU", ""))
-            user += SlurmTime.to_seconds(r.get("UserCPU", ""))
-            sysc += SlurmTime.to_seconds(r.get("SystemCPU", ""))
-        return {"TotalCPU_s": total, "UserCPU_s": user, "SystemCPU_s": sysc}
+class CpuCalculator(ICalculatorBase):
+    NAME = "cpu_total"
+    def __init__(self, logger):
+        super().__init__(logger)
+        self.tools = SlurmTime()
+        # shared context (inject)
+        self.ctx = {
+            "interactive_classifier": Classifier(Config.INTERACTIVE_KEYWORDS),
+            "gpu_classifier": Classifier(Config.GPUS_KEYWORD),
+            "cpu_summer": CpuStepSummer(),
+        }
+
+    def calculate(self, jobid, parent_row, step_rows):
+        pass
+
+    def select_cpu_source(self, parent_row, step_rows):
+        """
+        Default: steps exist => sum steps, else parent.
+        """
+        if step_rows:
+            cpu_sums = self.ctx["cpu_summer"].sum_steps(step_rows)
+            return "steps", cpu_sums
+
+        cpu_parent_fields = {
+            "TotalCPU_s": self.tools.to_seconds(parent_row.get("TotalCPU", "")),
+            "UserCPU_s": self.tools.to_seconds(parent_row.get("UserCPU", "")),
+            "SystemCPU_s": self.tools.to_seconds(parent_row.get("SystemCPU", "")),
+        }
+        return "parent", cpu_parent_fields
+
+    def compute_raw(self, jobid, parent_row, step_rows):
+        pass
+
+    def build_final_row(
+            self, parent_row, cpu_sums, raw=None,
+            bill_mode=None, interactive=None, reason=None):
+        # dict dataset: keep meta + seconds + decision
+        final = {}
+        fields = [
+            "JobID",
+            "User",
+            "JobName",
+            "Partition",
+            "NCPUS",
+            "NodeList",
+            "AllocTRES",
+            "End",
+            "State",
+            "SubmitLine"]
+        for f in fields:
+            final[f] = parent_row.get(f, "")
+        final.update(cpu_sums)
+        final.update({
+            "Elapsed_s": self.tools.to_seconds(parent_row.get("Elapsed", "")),
+            "CPUTime_s": self.tools.to_seconds(parent_row.get("CPUTime", "")),
+            "BillMode": bill_mode,
+            "BillSeconds_raw": raw,
+            "Interactive": interactive,
+            "DecisionNote": reason,
+        })
 
 
 class App(object):
