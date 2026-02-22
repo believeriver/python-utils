@@ -32,7 +32,7 @@ from datetime import datetime, timedelta
 # -----------------------------
 class Config(object):
     # DEFAULT_STARTTIME = "2026-01-01"
-    DEFAULT_SPAN = 90
+    DEFAULT_SPAN = 34
     SSH_HOST = "192.168.64.2"
     SSH_USER = "root"
 
@@ -109,7 +109,7 @@ class Schema(ABC):
         pass
 
 
-class SubmitClient(ABC):
+class SacctClientBase(ABC):
     def __init__(self, sacct_path, logger, schema, days_ago=90,
                  ssh_host=None, ssh_user=None):
         self.sacct_path = sacct_path
@@ -119,25 +119,39 @@ class SubmitClient(ABC):
         self.ssh_host = ssh_host
         self.ssh_user = ssh_user
 
+    def _parse_endtime(self, endtime):
+        """
+        endtime:
+          - "now"
+          - None
+          - "YYYY-MM-DDTHH:MM"
+        """
+        if endtime is None or endtime == "now":
+            return datetime.now()
+
+        try:
+            return datetime.strptime(endtime, "%Y-%m-%dT%H:%M")
+        except ValueError:
+            raise ValueError("Unsupported endtime format: %s" % endtime)
+
     def calc_starttime(self, endtime=None):
         """
         days_ago: int (例: 90)
         endtime: datetime or None (None = now)
         return: 'YYYY-MM-DDTHH:MM'
         """
-        if endtime is None or endtime == "now":
-            endtime = datetime.now()
+        end_dt = self._parse_endtime(endtime)
+        start = end_dt - timedelta(days=self.days_ago)
 
-        start = endtime - timedelta(days=self.days_ago)
         # sacct が素直に読める形式
         return start.strftime("%Y-%m-%dT%H:%M")
 
     @abstractmethod
-    def fetch_rows(self, cmd):
+    def fetch_rows(self, endtime="now"):
         pass
 
 
-class SacctSchema(ABC):
+class SacctSchema(Schema):
     def __init__(self, fields=None):
         self.FIELDS = fields or [
             "JobID",
@@ -170,7 +184,7 @@ class SacctSchema(ABC):
         return row
 
 
-class SacctClient(SubmitClient):
+class SacctClient(SacctClientBase):
 
     def fetch_rows(self, endtime="now"):
         starttime = self.calc_starttime(endtime)
