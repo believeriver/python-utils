@@ -1,73 +1,66 @@
-"""
-SLURM billing base (Python 3.6) - dict dataset version.
-
-Key points:
-- sacct output is parsed into dict rows: {field: value, ...}
-- dataset is also dict-based:
-    dataset = {
-        "parents": {jobid: parent_row_dict},
-        "steps": {jobid: [step_row_dict, ...]},
-        "step_sums": {jobid: {"TotalCPU_s":..., "UserCPU_s":..., "SystemCPU_s":...}},
-        "final": {jobid: final_row_dict_with_seconds_and_billing_fields}
-    }
-- CPU aggregation policy:
-    if any step rows exist for jobid -> use step sums only
-    else -> use parent row CPU fields
-- Interactive classification by SubmitLine: contains "--pty" or "salloc"
-- Billing mode switchable by config
-"""
-
-import subprocess
 import re
-import sys
 import math
-import csv
 import logging
+import subprocess
+import sys
 
 
 # -----------------------------
-# Logging
-# -----------------------------
-def setup_logger(level):
-    logger = logging.getLogger("slurm_billing")
-    logger.setLevel(level)
-
-    # Avoid duplicate handlers if re-imported
-    if not logger.handlers:
-        h = logging.StreamHandler()
-        fmt = logging.Formatter(
-            "%(asctime)s %(levelname)s %(name)s: %(message)s"
-        )
-        h.setFormatter(fmt)
-        logger.addHandler(h)
-
-    return logger
-
-
-# -----------------------------
-# Config (edit here only)
+# Config
 # -----------------------------
 class Config(object):
     DEFAULT_STARTTIME = "2026-01-01"
 
     INTERACTIVE_KEYWORDS = ["--pty", "salloc"]
-
     UNKNOWN_AS_CPU_BILLING = True
+
+    # Policy switches (easy to flip later)
     USE_OCCUPIED_FOR_INTERACTIVE = True
 
+    # Rounding
     ROUND_UNIT_SECONDS = 60
-    ROUND_MODE = "ceil"   # "ceil" / "floor" / "round" / "none"
+    ROUND_MODE = "ceil"
     MIN_BILLABLE_SECONDS = 0
 
     SACCT_PATH = "sacct"
 
-    # Debug sampling sizes
-    DEBUG_SAMPLE_RAW_LINES = 3
-    DEBUG_SAMPLE_ROWS = 2
+
+# -----------------------------
+# Logger + trace formatting
+# -----------------------------
+def setup_logger(level):
+    logger = logging.getLogger("slurm_billing")
+    logger.setLevel(level)
+    if not logger.handlers:
+        h = logging.StreamHandler()
+        fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+        h.setFormatter(fmt)
+        logger.addHandler(h)
+    return logger
+
+
+class TracePrinter(object):
+    """
+    “見づらい”問題は、loggerに全文を垂れ流すのではなく、
+    trace(dict)を人間が追える形に整形して出すのがコツです。
+    """
+    @staticmethod
+    def one_line(trace):
+        # 必要なキーだけを抜いて短く表示（あとからいくらでも変えられる）
+        parts = []
+        parts.append("jobid={}".format(trace.get("jobid")))
+        parts.append("calc={}".format(trace.get("calculator")))
+        parts.append("cpu_source={}".format(trace.get("cpu_source")))
+        parts.append("bill_mode={}".format(trace.get("bill_mode")))
+        parts.append("raw={:.3f}".format(trace.get("raw_seconds", 0.0)))
+        parts.append("rounded={:.3f}".format(trace.get("rounded_seconds", 0.0)))
+        parts.append("interactive={}".format(trace.get("interactive")))
+        parts.append("reason={}".format(trace.get("reason")))
+        return "TRACE " + " ".join(parts)
 
 
 # -----------------------------
-# Time / rounding utilities
+# Utilities
 # -----------------------------
 class SlurmTime(object):
     @staticmethod
@@ -77,17 +70,14 @@ class SlurmTime(object):
         t = t.strip()
         if t == "Unknown":
             return 0.0
-
         t = t.replace(",", ".")
         days = 0
-
         if "-" in t:
             d, t = t.split("-", 1)
             try:
                 days = int(d)
             except ValueError:
                 days = 0
-
         parts = t.split(":")
         try:
             if len(parts) == 3:
@@ -100,7 +90,6 @@ class SlurmTime(object):
                 return 0.0
         except ValueError:
             return 0.0
-
         return days * 86400.0 + h * 3600.0 + m * 60.0 + s
 
 
@@ -113,27 +102,23 @@ class RoundingPolicy(object):
     def apply(self, seconds):
         if seconds < 0:
             seconds = 0.0
-
-        if self.min_seconds > 0 and seconds > 0 and seconds < self.min_seconds:
+        if self.min_seconds > 0 and 0 < seconds < self.min_seconds:
             seconds = self.min_seconds
-
         if self.mode == "none" or self.unit == 0.0:
             return seconds
 
         q = seconds / self.unit
-
         if self.mode == "ceil":
             return math.ceil(q) * self.unit
         if self.mode == "floor":
             return math.floor(q) * self.unit
         if self.mode == "round":
             return math.floor(q + 0.5) * self.unit
-
         return seconds
 
 
 # -----------------------------
-# Sacct schema + parser
+# sacct access -> dict rows
 # -----------------------------
 class SacctSchema(object):
     FIELDS = [
@@ -163,7 +148,6 @@ class SacctSchema(object):
         cols = line.split("|")
         if len(cols) < len(cls.FIELDS):
             cols = cols + [""] * (len(cls.FIELDS) - len(cols))
-
         row = {}
         for i, k in enumerate(cls.FIELDS):
             row[k] = cols[i] if i < len(cols) else ""
@@ -186,42 +170,21 @@ class SacctClient(object):
             "--parsable2",
             "-n",
         ]
-
         self.log.debug("Running sacct: %s", " ".join(cmd))
-
-        p = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
-        )
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         if p.returncode != 0:
-            self.log.info("sacct failed (rc=%s). stderr=%s", p.returncode, p.stderr.strip())
+            self.log.info("sacct failed rc=%s stderr=%s", p.returncode, p.stderr.strip())
             raise RuntimeError("sacct failed")
-
         raw_lines = [ln for ln in p.stdout.splitlines() if ln.strip()]
-        self.log.debug("sacct returned %d non-empty lines", len(raw_lines))
-
-        for i, ln in enumerate(raw_lines[:Config.DEBUG_SAMPLE_RAW_LINES]):
-            self.log.debug("RAW[%d]: %s", i, ln)
-
-        rows = []
-        for ln in raw_lines:
-            rows.append(SacctSchema.parse_line(ln))
-
-        for i, r in enumerate(rows[:Config.DEBUG_SAMPLE_ROWS]):
-            # show a subset of keys for readability
-            self.log.debug(
-                "ROW[%d] JobID=%s JobName=%s User=%s Part=%s Elapsed=%s TotalCPU=%s CPUTime=%s State=%s SubmitLine=%s",
-                i,
-                r.get("JobID"), r.get("JobName"), r.get("User"), r.get("Partition"),
-                r.get("Elapsed"), r.get("TotalCPU"), r.get("CPUTime"), r.get("State"),
-                (r.get("SubmitLine") or "")[:80]
-            )
-
-        return rows
+        # debug: raw all
+        if self.log.isEnabledFor(logging.DEBUG):
+            self.log.debug("RAW_ALL_BEGIN total=%d", len(raw_lines))
+            for ln in raw_lines:
+                self.log.debug("RAW|%s", ln)
+            self.log.debug("RAW_ALL_END")
+        return [SacctSchema.parse_line(ln) for ln in raw_lines]
 
 
-# -----------------------------
-# Dataset builder
-# -----------------------------
 class DatasetBuilder(object):
     STEP_RE = re.compile(r"^(\d+)\.(.+)$")
     JOB_RE = re.compile(r"^\d+$")
@@ -230,182 +193,217 @@ class DatasetBuilder(object):
         self.log = logger
 
     def build(self, rows):
-        dataset = {"parents": {}, "steps": {}}
-
+        ds = {"parents": {}, "steps": {}}
         for r in rows:
-            jobid = (r.get("JobID") or "").strip()
-            if not jobid:
-                self.log.debug("Skipping row with empty JobID: %s", r)
+            jid = (r.get("JobID") or "").strip()
+            if not jid:
                 continue
-
-            m = self.STEP_RE.match(jobid)
+            m = self.STEP_RE.match(jid)
             if m:
                 parent = m.group(1)
-                dataset["steps"].setdefault(parent, []).append(r)
+                ds["steps"].setdefault(parent, []).append(r)
                 continue
-
-            if self.JOB_RE.match(jobid):
-                dataset["parents"][jobid] = r
+            if self.JOB_RE.match(jid):
+                ds["parents"][jid] = r
                 continue
-
-            # ignore others
-            self.log.debug("Ignoring non-job/non-step JobID=%s", jobid)
-
-        self.log.debug("Dataset built: parents=%d steps(parents with steps)=%d",
-                       len(dataset["parents"]), len(dataset["steps"]))
-
-        # show a few examples
-        if dataset["parents"]:
-            sample = sorted(dataset["parents"].keys(), key=lambda x: int(x))[:3]
-            for jid in sample:
-                pr = dataset["parents"][jid]
-                self.log.debug("PARENT sample jobid=%s JobName=%s SubmitLine=%s",
-                               jid, pr.get("JobName"), (pr.get("SubmitLine") or "")[:80])
-
-        if dataset["steps"]:
-            sample = sorted(dataset["steps"].keys(), key=lambda x: int(x))[:3]
-            for jid in sample:
-                self.log.debug("STEPS sample jobid=%s step_count=%d step_jobids=%s",
-                               jid, len(dataset["steps"][jid]),
-                               [s.get("JobID") for s in dataset["steps"][jid][:5]])
-
-        return dataset
+        self.log.debug("Dataset built: parents=%d step_parents=%d", len(ds["parents"]), len(ds["steps"]))
+        return ds
 
 
 # -----------------------------
-# Pipeline
+# Template Method: Calculator
 # -----------------------------
-class BillingPipeline(object):
-    def __init__(self, cfg, logger):
+class CalculatorBase(object):
+    """
+    Template Method:
+      calculate(jobid, parent_row, step_rows, ctx) -> (final_row_dict, trace_dict)
+    """
+    NAME = "base"
+
+    def __init__(self, rounding_policy, cfg):
+        self.rounding = rounding_policy
         self.cfg = cfg
-        self.log = logger
-        self.rounding = RoundingPolicy(cfg.ROUND_UNIT_SECONDS, cfg.ROUND_MODE, cfg.MIN_BILLABLE_SECONDS)
+
+    def calculate(self, jobid, parent_row, step_rows, ctx):
+        cpu_source, cpu_sums = self.select_cpu_source(jobid, parent_row, step_rows, ctx)
+        raw_seconds, bill_mode, reason, interactive = self.compute_raw(jobid, parent_row, cpu_sums, ctx)
+        rounded = self.rounding.apply(raw_seconds)
+
+        final = self.build_final_row(jobid, parent_row, cpu_sums, raw_seconds, rounded, bill_mode, interactive, reason)
+
+        trace = {
+            "jobid": jobid,
+            "calculator": self.NAME,
+            "cpu_source": cpu_source,
+            "bill_mode": bill_mode,
+            "raw_seconds": raw_seconds,
+            "rounded_seconds": rounded,
+            "interactive": interactive,
+            "reason": reason,
+
+            # raw strings for audit / conversion check
+            "elapsed_raw": parent_row.get("Elapsed", ""),
+            "cputime_raw": parent_row.get("CPUTime", ""),
+            "totalcpu_raw_parent": parent_row.get("TotalCPU", ""),
+            "submitline": (parent_row.get("SubmitLine") or "")[:200],
+        }
+
+        return final, trace
+
+    # ---- overridable hooks ----
+    def select_cpu_source(self, jobid, parent_row, step_rows, ctx):
+        """
+        Default: steps exist => sum steps, else parent.
+        """
+        if step_rows:
+            cpu_sums = ctx["cpu_summer"].sum_steps(step_rows)
+            return "steps", cpu_sums
+
+        cpu_sums = {
+            "TotalCPU_s": SlurmTime.to_seconds(parent_row.get("TotalCPU", "")),
+            "UserCPU_s": SlurmTime.to_seconds(parent_row.get("UserCPU", "")),
+            "SystemCPU_s": SlurmTime.to_seconds(parent_row.get("SystemCPU", "")),
+        }
+        return "parent", cpu_sums
+
+    def compute_raw(self, jobid, parent_row, cpu_sums, ctx):
+        raise NotImplementedError
+
+    def build_final_row(self, jobid, parent_row, cpu_sums, raw, rounded, bill_mode, interactive, reason):
+        # dict dataset: keep meta + seconds + decision
+        final = {}
+        for k in ["JobID", "User", "JobName", "Partition", "NCPUS", "NodeList", "AllocTRES", "End", "State", "SubmitLine"]:
+            final[k] = parent_row.get(k, "")
+        final.update(cpu_sums)
+        final.update({
+            "Elapsed_s": SlurmTime.to_seconds(parent_row.get("Elapsed", "")),
+            "CPUTime_s": SlurmTime.to_seconds(parent_row.get("CPUTime", "")),
+            "BillMode": bill_mode,
+            "BillSeconds_raw": raw,
+            "BillSeconds_rounded": rounded,
+            "Interactive": interactive,
+            "DecisionNote": reason,
+        })
+        return final
+
+
+class CpuStepSummer(object):
+    """単純責務：stepのCPUを合算する（ここを差し替えるのも簡単）"""
+    def sum_steps(self, step_rows):
+        total = 0.0
+        user = 0.0
+        sysc = 0.0
+        for r in step_rows:
+            total += SlurmTime.to_seconds(r.get("TotalCPU", ""))
+            user += SlurmTime.to_seconds(r.get("UserCPU", ""))
+            sysc += SlurmTime.to_seconds(r.get("SystemCPU", ""))
+        return {"TotalCPU_s": total, "UserCPU_s": user, "SystemCPU_s": sysc}
+
+
+class CpuCalculator(CalculatorBase):
+    """
+    CPU課金の基本実装。
+    - interactive判定（SubmitLine）を行い、方針により occupied(=CPUTime) または cpu(=TotalCPU) を選ぶ
+    """
+    NAME = "cpu"
+
+    def compute_raw(self, jobid, parent_row, cpu_sums, ctx):
+        submit = (parent_row.get("SubmitLine") or "").strip()
+        interactive = ctx["classifier"].is_interactive(submit)
+
+        totalcpu_s = cpu_sums["TotalCPU_s"]
+        cputime_s = SlurmTime.to_seconds(parent_row.get("CPUTime", ""))
+
+        if interactive is True and self.cfg.USE_OCCUPIED_FOR_INTERACTIVE:
+            return cputime_s, "occupied", "interactive -> CPUTime", True
+        if interactive is True and not self.cfg.USE_OCCUPIED_FOR_INTERACTIVE:
+            return totalcpu_s, "cpu", "interactive -> TotalCPU", True
+        if interactive is False:
+            return totalcpu_s, "cpu", "batch -> TotalCPU", False
+
+        # unknown
+        if self.cfg.UNKNOWN_AS_CPU_BILLING:
+            return totalcpu_s, "cpu", "SubmitLine missing -> safe TotalCPU", None
+        return cputime_s, "occupied", "SubmitLine missing -> occupied", None
+
+
+class InteractiveClassifier(object):
+    def __init__(self, keywords):
+        self.keywords = [k.lower() for k in keywords]
 
     def is_interactive(self, submitline):
         if not submitline:
             return None
         s = submitline.lower()
-        for k in self.cfg.INTERACTIVE_KEYWORDS:
+        for k in self.keywords:
             if k in s:
                 return True
         return False
 
-    def sum_steps_cpu(self, step_rows):
-        total = 0.0
-        user = 0.0
-        sysc = 0.0
 
-        # Debug: show step rows being summed
-        self.log.debug("Summing %d step rows", len(step_rows))
-        for r in step_rows[:5]:
-            self.log.debug("  step JobID=%s TotalCPU=%s UserCPU=%s SystemCPU=%s",
-                           r.get("JobID"), r.get("TotalCPU"), r.get("UserCPU"), r.get("SystemCPU"))
+# -----------------------------
+# Abstract Factory: choose calculator
+# -----------------------------
+class CalculatorFactory(object):
+    """
+    将来：
+      - GPUあり -> GpuCalculator
+      - GPUなし -> CpuCalculator
+      - 特定Partition -> SpecialCalculator
+    等へ拡張しやすい。
+    """
+    def __init__(self, cfg, rounding_policy):
+        self.cfg = cfg
+        self.rounding = rounding_policy
 
-        for r in step_rows:
-            total += SlurmTime.to_seconds(r.get("TotalCPU", ""))
-            user += SlurmTime.to_seconds(r.get("UserCPU", ""))
-            sysc += SlurmTime.to_seconds(r.get("SystemCPU", ""))
+    def create(self, parent_row):
+        # 現時点はCPUのみ。GPU対応時にここが伸びる。
+        return CpuCalculator(self.rounding, self.cfg)
 
-        return {"TotalCPU_s": total, "UserCPU_s": user, "SystemCPU_s": sysc}
 
-    def pick_cpu_source(self, jobid, parent_row, step_rows):
-        if step_rows:
-            sums = self.sum_steps_cpu(step_rows)
-            sums["CPU_source"] = "steps"
-            self.log.debug("CPU source for jobid=%s: steps (step_count=%d) TotalCPU_s=%.3f",
-                           jobid, len(step_rows), sums["TotalCPU_s"])
-            return sums
+# -----------------------------
+# Orchestrator (pipeline)
+# -----------------------------
+class BillingEngine(object):
+    def __init__(self, cfg, logger):
+        self.cfg = cfg
+        self.log = logger
+        self.rounding = RoundingPolicy(cfg.ROUND_UNIT_SECONDS, cfg.ROUND_MODE, cfg.MIN_BILLABLE_SECONDS)
+        self.factory = CalculatorFactory(cfg, self.rounding)
 
-        sums = {
-            "TotalCPU_s": SlurmTime.to_seconds(parent_row.get("TotalCPU", "")),
-            "UserCPU_s": SlurmTime.to_seconds(parent_row.get("UserCPU", "")),
-            "SystemCPU_s": SlurmTime.to_seconds(parent_row.get("SystemCPU", "")),
-            "CPU_source": "parent",
-        }
-        self.log.debug("CPU source for jobid=%s: parent TotalCPU=%s (%.3f sec)",
-                       jobid, parent_row.get("TotalCPU", ""), sums["TotalCPU_s"])
-        return sums
-
-    def bill_seconds(self, jobid, parent_row, cpu_sums):
-        elapsed_s = SlurmTime.to_seconds(parent_row.get("Elapsed", ""))
-        cputime_s = SlurmTime.to_seconds(parent_row.get("CPUTime", ""))
-        totalcpu_s = cpu_sums["TotalCPU_s"]
-
-        submit = (parent_row.get("SubmitLine") or "").strip()
-        interactive = self.is_interactive(submit)
-
-        if interactive is True and self.cfg.USE_OCCUPIED_FOR_INTERACTIVE:
-            raw = cputime_s
-            mode = "occupied"
-            note = "interactive -> CPUTime"
-        elif interactive is True and not self.cfg.USE_OCCUPIED_FOR_INTERACTIVE:
-            raw = totalcpu_s
-            mode = "cpu"
-            note = "interactive -> TotalCPU"
-        elif interactive is False:
-            raw = totalcpu_s
-            mode = "cpu"
-            note = "batch -> TotalCPU"
-        else:
-            if self.cfg.UNKNOWN_AS_CPU_BILLING:
-                raw = totalcpu_s
-                mode = "cpu"
-                note = "SubmitLine missing -> safe TotalCPU"
-            else:
-                raw = cputime_s
-                mode = "occupied"
-                note = "SubmitLine missing -> occupied"
-
-        rounded = self.rounding.apply(raw)
-
-        # Debug billing decision
-        self.log.debug(
-            "BILL jobid=%s interactive=%s mode=%s raw=%.3f rounded=%.3f elapsed=%.1f cputime=%.1f totalcpu=%.3f note=%s submit=%s",
-            jobid, interactive, mode, raw, rounded, elapsed_s, cputime_s, totalcpu_s, note,
-            (submit[:80] if submit else "N/A")
-        )
-
-        return {
-            "Elapsed_s": elapsed_s,
-            "CPUTime_s": cputime_s,
-            "BillMode": mode,
-            "BillSeconds_raw": raw,
-            "BillSeconds_rounded": rounded,
-            "Interactive": interactive,
-            "DecisionNote": note,
-            "SubmitLine_present": True if submit else False,
+        # shared context (inject)
+        self.ctx = {
+            "classifier": InteractiveClassifier(cfg.INTERACTIVE_KEYWORDS),
+            "cpu_summer": CpuStepSummer(),
         }
 
     def run(self, dataset):
+        final = {}
+        traces = {}
+
         parents = dataset.get("parents", {})
         steps = dataset.get("steps", {})
 
-        dataset["step_sums"] = {}
-        dataset["final"] = {}
-
-        for jobid, prow in parents.items():
+        for jobid, parent_row in parents.items():
             step_rows = steps.get(jobid, [])
-            cpu_sums = self.pick_cpu_source(jobid, prow, step_rows)
-            dataset["step_sums"][jobid] = cpu_sums
 
-            bill = self.bill_seconds(jobid, prow, cpu_sums)
+            calc = self.factory.create(parent_row)
+            out_row, trace = calc.calculate(jobid, parent_row, step_rows, self.ctx)
 
-            final = {}
-            for k in ["JobID", "User", "JobName", "Partition", "NCPUS", "NodeList",
-                      "AllocTRES", "End", "State", "SubmitLine"]:
-                final[k] = prow.get(k, "")
+            final[jobid] = out_row
+            traces[jobid] = trace
 
-            final.update(cpu_sums)
-            final.update(bill)
+            # debug: one-line trace
+            if self.log.isEnabledFor(logging.DEBUG):
+                self.log.debug(TracePrinter.one_line(trace))
 
-            dataset["final"][jobid] = final
-
-        self.log.debug("Pipeline finished: final rows=%d", len(dataset["final"]))
+        dataset["final"] = final
+        dataset["traces"] = traces
         return dataset
 
 
 # -----------------------------
-# Reporting
+# Reporter (minimal)
 # -----------------------------
 class Reporter(object):
     @staticmethod
@@ -413,15 +411,13 @@ class Reporter(object):
         header = [
             "JobID", "User", "JobName", "Part", "NCPUS",
             "Elapsed(s)", "CPUTime(s)", "TotalCPU(s)",
-            "BillMode", "Bill(raw)", "Bill(rounded)",
-            "Submit", "CPUfrom"
+            "BillMode", "Bill(raw)", "Bill(rounded)"
         ]
-        fmt = "{:<6s} {:<8s} {:<10s} {:<6s} {:>5s} {:>10s} {:>10s} {:>10s} {:<9s} {:>10s} {:>12s} {:<6s} {:<6s}"
+        fmt = "{:<6s} {:<8s} {:<10s} {:<6s} {:>5s} {:>10s} {:>10s} {:>10s} {:<9s} {:>10s} {:>12s}"
         print(fmt.format(*header))
 
         for jid in sorted(final_map.keys(), key=lambda x: int(x)):
             r = final_map[jid]
-            submit_flag = "Y" if r.get("SubmitLine_present") else "N"
             row = [
                 str(r.get("JobID", jid)),
                 (r.get("User", "") or "")[:8],
@@ -434,44 +430,19 @@ class Reporter(object):
                 r.get("BillMode", ""),
                 "{:.3f}".format(r.get("BillSeconds_raw", 0.0)),
                 "{:.3f}".format(r.get("BillSeconds_rounded", 0.0)),
-                submit_flag,
-                r.get("CPU_source", ""),
             ]
             print(fmt.format(*row))
 
-    @staticmethod
-    def write_csv(path, final_map):
-        fields = [
-            "JobID", "End", "User", "JobName", "Partition", "NodeList", "NCPUS", "AllocTRES",
-            "State", "SubmitLine",
-            "Elapsed_s", "CPUTime_s",
-            "TotalCPU_s", "UserCPU_s", "SystemCPU_s",
-            "CPU_source",
-            "Interactive", "BillMode", "BillSeconds_raw", "BillSeconds_rounded", "DecisionNote"
-        ]
-        with open(path, "w", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=fields)
-            w.writeheader()
-            for jid in sorted(final_map.keys(), key=lambda x: int(x)):
-                r = final_map[jid]
-                w.writerow({k: r.get(k, "") for k in fields})
-
 
 # -----------------------------
-# CLI
+# CLI / main
 # -----------------------------
 def parse_args(argv):
     starttime = Config.DEFAULT_STARTTIME
-    csv_path = None
-    log_level = logging.WARNING  # default quiet
-
+    log_level = logging.WARNING
     i = 1
     while i < len(argv):
         a = argv[i]
-        if a == "--csv" and i + 1 < len(argv):
-            csv_path = argv[i + 1]
-            i += 2
-            continue
         if a == "--debug":
             log_level = logging.DEBUG
             i += 1
@@ -480,33 +451,23 @@ def parse_args(argv):
             log_level = logging.INFO
             i += 1
             continue
-
         starttime = a
         i += 1
-
-    return starttime, csv_path, log_level
+    return starttime, log_level
 
 
 def main(argv):
-    starttime, csv_path, log_level = parse_args(argv)
-    logger = setup_logger(log_level)
+    starttime, log_level = parse_args(argv)
+    log = setup_logger(log_level)
 
     try:
-        rows = SacctClient(Config.SACCT_PATH, logger).fetch_rows(starttime=starttime, endtime="now")
-        dataset = DatasetBuilder(logger).build(rows)
-        dataset = BillingPipeline(Config, logger).run(dataset)
-        final_map = dataset.get("final", {})
-        Reporter.print_table(final_map)
-
-        if csv_path:
-            Reporter.write_csv(csv_path, final_map)
-            print("\nCSV written to: {}".format(csv_path))
-
+        rows = SacctClient(Config.SACCT_PATH, log).fetch_rows(starttime=starttime, endtime="now")
+        dataset = DatasetBuilder(log).build(rows)
+        dataset = BillingEngine(Config, log).run(dataset)
+        Reporter.print_table(dataset.get("final", {}))
     except Exception as e:
-        # INFO level: show error summary
-        logger.info("Fatal error: %s", str(e))
-        # DEBUG: stack trace
-        logger.debug("Exception details", exc_info=True)
+        log.info("Fatal error: %s", str(e))
+        log.debug("Exception details", exc_info=True)
         sys.exit(1)
 
 
