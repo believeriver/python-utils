@@ -255,6 +255,54 @@ class DatasetCpuBuilder(IDatasetBuilderBase):
         return ds
 
 
+# -----------------------------
+# Template Method: Calculator
+# -----------------------------
+class ICalculatorBase(ABC):
+    """
+        Template Method:
+          calculate(jobid, parent_row, step_rows, ctx) -> (final_row_dict, trace_dict)
+          context: TotalCPU policy, Interactive classification, Billing mode, etc.
+        """
+    NAME = "base"
+
+    def __init__(self, logger):
+        self.log = logger
+
+    @abstractmethod
+    def calculate(self, jobid, parent_row, step_rows, context):
+        pass
+
+    @abstractmethod
+    def select_cpu_source(self, parent_row, step_rows, context):
+        """
+        Default: steps exist => sum steps, else parent.
+        Return: string: "steps" or "parent", and cpu_sums dict if steps, or parent cpu fields if parent.
+        """
+        pass
+
+    @abstractmethod
+    def compute_raw(self, jobid, parent_row, step_rows, context):
+        pass
+
+    @abstractmethod
+    def build_final_row(self, parent_row, cpu_sums, context):
+        pass
+
+
+class CpuStepSummer(object):
+    """単純責務：stepのCPUを合算する（ここを差し替えるのも簡単）"""
+    def sum_steps(self, step_rows):
+        total = 0.0
+        user = 0.0
+        sysc = 0.0
+        for r in step_rows:
+            total += SlurmTime.to_seconds(r.get("TotalCPU", ""))
+            user += SlurmTime.to_seconds(r.get("UserCPU", ""))
+            sysc += SlurmTime.to_seconds(r.get("SystemCPU", ""))
+        return {"TotalCPU_s": total, "UserCPU_s": user, "SystemCPU_s": sysc}
+
+
 class App(object):
     def __init__(self):
         self.rows = None
