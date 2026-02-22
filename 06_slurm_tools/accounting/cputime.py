@@ -103,14 +103,14 @@ class SlurmTime(object):
 # -----------------------------
 # sacct access -> dict rows
 # -----------------------------
-class Schema(ABC):
+class ISchema(ABC):
     @abstractmethod
     def format_arg(cls):
         pass
 
 
-class SacctClientBase(ABC):
-    def __init__(self, sacct_path, logger, schema:Schema, days_ago=90,
+class ISacctClientBase(ABC):
+    def __init__(self, sacct_path, logger, schema:ISchema, days_ago=90,
                  ssh_host=None, ssh_user=None):
         self.sacct_path = sacct_path
         self.log = logger
@@ -151,7 +151,16 @@ class SacctClientBase(ABC):
         pass
 
 
-class SacctSchema(Schema):
+class IDatasetBuilderBase(ABC):
+    def __init__(self, logger):
+        self.log = logger
+
+    @abstractmethod
+    def build(self, rows):
+        pass
+
+
+class SacctCpuSchema(ISchema):
     def __init__(self, fields=None):
         self.FIELDS = fields or [
             "JobID",
@@ -168,6 +177,7 @@ class SacctSchema(Schema):
             "NCPUS",
             "AllocTRES",
             "NodeList",
+            "Start",
             "End",
         ]
 
@@ -184,7 +194,7 @@ class SacctSchema(Schema):
         return row
 
 
-class SacctClient(SacctClientBase):
+class SacctClient(ISacctClientBase):
     def fetch_rows(self, endtime="now"):
         starttime = self.calc_starttime(endtime)
         cmd = []
@@ -219,21 +229,51 @@ class SacctClient(SacctClientBase):
         return [self.schema.parse_line(ln) for ln in raw_lines]
 
 
+class DatasetCpuBuilder(IDatasetBuilderBase):
+    STEP_RE = re.compile(r"^(\d+)\.(.+)$")
+    JOB_RE = re.compile(r"^\d+$")
+
+    def build(self, rows):
+        ds = {"parents": {}, "steps": {}}
+        for r in rows:
+            jid = (r.get("JobID") or "").strip()
+            if not jid:
+                continue
+            m = self.STEP_RE.match(jid)
+            if m:
+                parent = m.group(1)
+                ds["steps"].setdefault(parent, []).append(r)
+                continue
+            if self.JOB_RE.match(jid):
+                ds["parents"][jid] = r
+                continue
+        self.log.debug("Dataset built: parents=%d step_parents=%d", len(ds["parents"]), len(ds["steps"]))
+        return ds
+
+
+class App(object):
+    def run(self):
+        log = setup_logger(Config.log_level)
+        cpu_schema = SacctCpuSchema()
+        client = SacctClient(
+            sacct_path=Config.SACCT_PATH,
+            logger=log,
+            schema=cpu_schema,
+            days_ago=Config.DEFAULT_SPAN,
+            ssh_host=Config.SSH_HOST,
+            ssh_user=Config.SSH_USER,)
+        rows = client.fetch_rows()
+        dataset = DatasetCpuBuilder(logger=log).build(rows)
+
+        for r in rows:
+            log.info("ROW: %s", r)
+
+        print('')
+        print(dataset)
+
+
 if __name__ == "__main__":
-    log = setup_logger(Config.log_level)
-    schema = SacctSchema()
-    client = SacctClient(
-        sacct_path=Config.SACCT_PATH,
-        logger=log,
-        schema=schema,
-        days_ago=Config.DEFAULT_SPAN,
-        ssh_host=Config.SSH_HOST,
-        ssh_user=Config.SSH_USER,)
-    rows = client.fetch_rows()
-    for r in rows:
-        log.info("ROW: %s", r)
-
-
-
+    app = App()
+    app.run()
 
 
