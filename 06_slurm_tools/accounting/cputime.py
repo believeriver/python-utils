@@ -260,18 +260,15 @@ class DatasetCpuBuilder(IDatasetBuilderBase):
 # -----------------------------
 # Template Method: Calculator
 # -----------------------------
-class Classifier(object):
+class KeywordClassifier(object):
     def __init__(self, keywords):
         self.keywords = [k.lower() for k in keywords]
 
-    def is_interactive(self, submitline):
-        if not submitline:
-            return None
-        s = submitline.lower()
-        for k in self.keywords:
-            if k in s:
-                return True
-        return False
+    def matches(self, text):
+        if not text:
+            return False
+        s = text.lower()
+        return any(k in s for k in self.keywords)
 
 
 class CpuStepSummer(object):
@@ -312,7 +309,7 @@ class ICalculatorBase(ABC):
         pass
 
     @abstractmethod
-    def compute_raw(self, jobid, parent_row, step_rows):
+    def compute_raw(self, jobid, parent_row, cpu_sums):
         pass
 
     @abstractmethod
@@ -327,8 +324,8 @@ class CpuCalculator(ICalculatorBase):
         self.tools = SlurmTime()
         # shared context (inject)
         self.ctx = {
-            "interactive_classifier": Classifier(Config.INTERACTIVE_KEYWORDS),
-            "gpu_classifier": Classifier(Config.GPUS_KEYWORD),
+            "interactive_classifier": KeywordClassifier(Config.INTERACTIVE_KEYWORDS),
+            "gpu_classifier": KeywordClassifier(Config.GPUS_KEYWORD),
             "cpu_summer": CpuStepSummer(),
         }
 
@@ -343,15 +340,21 @@ class CpuCalculator(ICalculatorBase):
             cpu_sums = self.ctx["cpu_summer"].sum_steps(step_rows)
             return "steps", cpu_sums
 
-        cpu_parent_fields = {
+        cpu_sums = {
             "TotalCPU_s": self.tools.to_seconds(parent_row.get("TotalCPU", "")),
             "UserCPU_s": self.tools.to_seconds(parent_row.get("UserCPU", "")),
             "SystemCPU_s": self.tools.to_seconds(parent_row.get("SystemCPU", "")),
         }
-        return "parent", cpu_parent_fields
+        return "parent", cpu_sums
 
-    def compute_raw(self, jobid, parent_row, step_rows):
-        pass
+    def compute_raw(self, jobid, parent_row, cpu_sums):
+        submit = (parent_row.get("SubmitLine") or "").strip()
+        alloc_tres = (parent_row.get("AllocTRES") or "").strip()
+        interactive = self.ctx["interactive_classifier"].matches(submit)
+        gpus = self.ctx["gpu_classifier"].matches(alloc_tres)
+
+        totalcpu_s = cpu_sums["TotalCPU_s"]
+        cputime_s = SlurmTime.to_seconds(parent_row.get("CPUTime", ""))
 
     def build_final_row(
             self, parent_row, cpu_sums, raw=None,
