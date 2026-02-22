@@ -43,7 +43,14 @@ class Config(object):
     UNKNOWN_AS_CPU_BILLING = True
 
     # Policy switches (easy to flip later)
-    USE_OCCUPIED_FOR_INTERACTIVE = True
+    # USE_OCCUPIED_FOR_INTERACTIVE = True
+    CLASSIFY_PRIORITY = ["interactive_gpu", "interactive", "gpu", "default"]
+    BILL_METRIC_BY_CLASS = {
+        "interactive": "elapsed",
+        "interactive_gpu": "elapsed",
+        "gpu": "elapsed",
+        "default": "totalcpu",
+    }
 
     # Rounding
     ROUND_UNIT_SECONDS = 60
@@ -258,7 +265,7 @@ class DatasetCpuBuilder(IDatasetBuilderBase):
 
 
 # -----------------------------
-# Template Method: Calculator
+# Template Method: TimeCalculator
 # -----------------------------
 class KeywordClassifier(object):
     def __init__(self, keywords):
@@ -317,8 +324,8 @@ class ICalculatorBase(ABC):
         pass
 
 
-class CpuCalculator(ICalculatorBase):
-    NAME = "cpu_total"
+class TimeCalculator(ICalculatorBase):
+    NAME = "execute_time_total"
     def __init__(self, logger):
         super().__init__(logger)
         self.tools = SlurmTime()
@@ -330,7 +337,10 @@ class CpuCalculator(ICalculatorBase):
         }
 
     def calculate(self, jobid, parent_row, step_rows):
-        pass
+        cpu_source, cpu_sums = self.select_cpu_source(parent_row, step_rows)
+        raw_seconds, metric, chosen_class, reason = self.compute_raw(jobid, parent_row, cpu_sums)
+        final_row = self.build_final_row(parent_row, cpu_sums, raw_seconds, chosen_class, reason)
+        return final_row
 
     def select_cpu_source(self, parent_row, step_rows):
         """
@@ -349,12 +359,46 @@ class CpuCalculator(ICalculatorBase):
 
     def compute_raw(self, jobid, parent_row, cpu_sums):
         submit = (parent_row.get("SubmitLine") or "").strip()
-        alloc_tres = (parent_row.get("AllocTRES") or "").strip()
-        interactive = self.ctx["interactive_classifier"].matches(submit)
-        gpus = self.ctx["gpu_classifier"].matches(alloc_tres)
+        interactive = bool(self.ctx["interactive_classifier"].matches(submit))
 
-        totalcpu_s = cpu_sums["TotalCPU_s"]
-        cputime_s = SlurmTime.to_seconds(parent_row.get("CPUTime", ""))
+        alloc_tres = (parent_row.get("AllocTRES") or "").strip()
+        gpu_job = bool(self.ctx["gpu_classifier"].matches(alloc_tres))
+
+        # 候補値（秒）
+        candidates = {
+            "totalcpu": float(cpu_sums.get("TotalCPU_s") or 0.0),  # step優先で作った値
+            "elapsed": self.tools.to_seconds(parent_row.get("Elapsed", "")),  # 将来必要なら
+        }
+
+        # どのクラスに該当したか
+        classes = {
+            "interactive": interactive,
+            "gpu": gpu_job,
+            "default": True,
+        }
+
+        # 優先順位に従って最初に該当したクラスを採用
+        chosen_class = None
+        for c in Config.CLASSIFY_PRIORITY:
+            if classes.get(c):
+                chosen_class = c
+                break
+
+        metric = Config.BILL_METRIC_BY_CLASS.get(
+            chosen_class, "totalcpu")
+
+        if metric not in candidates:
+            # 設定ミスを早期に検知（課金系はフェイルファスト推奨）
+            raise ValueError("Unknown metric '{}' for class '{}'".format(metric, chosen_class))
+
+        raw_seconds = candidates[metric]
+
+        # trace 用（ログに出すならここを返す/保存）
+        reason = "class={} metric={} interactive={} gpu={}".format(
+            chosen_class, metric, interactive, gpu_job
+        )
+
+        return raw_seconds, metric, chosen_class, reason
 
     def build_final_row(
             self, parent_row, cpu_sums, raw=None,
@@ -383,6 +427,26 @@ class CpuCalculator(ICalculatorBase):
             "Interactive": interactive,
             "DecisionNote": reason,
         })
+        return final
+
+
+# -----------------------------
+# Orchestrator (pipeline)
+# -----------------------------
+class BillingEngine(object):
+    def __init__(self, logger, calculator:ICalculatorBase):
+        self.log = logger
+        self.calculator = calculator
+
+    def process(self, dataset):
+        final = {}
+        for jobid, parent_row in dataset["parents"].items():
+            step_rows = dataset["steps"].get(jobid, [])
+            final_row = self.calculator.calculate(jobid, parent_row, step_rows)
+            final[jobid] = final_row
+
+        dataset["final"] = final
+        return dataset
 
 
 class App(object):
@@ -402,6 +466,9 @@ class App(object):
             ssh_user=Config.SSH_USER,)
         self.rows = client.fetch_rows()
         self.dataset = DatasetCpuBuilder(logger=self.logger).build(self.rows)
+        calculator = TimeCalculator(logger=self.logger)
+        engine = BillingEngine(logger=self.logger, calculator=calculator)
+        self.dataset = engine.process(self.dataset)
 
     def debug_print(self):
         for r in self.rows:
