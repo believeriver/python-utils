@@ -340,6 +340,20 @@ class TimeCalculator(ICalculatorBase):
             "cpu_summer": CpuStepSummer(),
         }
 
+    @staticmethod
+    def parse_gpu_count(alloc_tres):
+        if not alloc_tres:
+            return 0
+        alloc_tres = alloc_tres.strip().lower()
+        gpu_count = 0
+        for part in alloc_tres.split(","):
+            if part.startswith("gpu="):
+                try:
+                    gpu_count += int(part.split("=", 1)[1])
+                except ValueError:
+                    pass
+        return gpu_count
+
     def calculate(self, jobid, parent_row, step_rows):
         cpu_source, cpu_sums = self.select_cpu_source(parent_row, step_rows)
         raw_seconds, metric, chosen_class, reason = self.compute_raw(jobid, parent_row, cpu_sums)
@@ -367,6 +381,12 @@ class TimeCalculator(ICalculatorBase):
 
         alloc_tres = (parent_row.get("AllocTRES") or "").strip()
         gpu_job = bool(self.ctx["gpu_classifier"].matches(alloc_tres))
+
+        # num of CPUs/GPUs to consider for elapsed-based billing (例: 2 GPUsなら実時間の2倍にする)
+        elapsed_counter = {
+            "ncpus": int(parent_row.get("NCPUS") or 1),
+            "ngpus": self.parse_gpu_count(alloc_tres)  # gres/gpu=2 を 2
+        }
 
         # 候補値（秒）
         candidates = {
@@ -396,6 +416,11 @@ class TimeCalculator(ICalculatorBase):
             raise ValueError("Unknown metric '{}' for class '{}'".format(metric, chosen_class))
 
         raw_seconds = candidates[metric]
+        if metric == "elapsed":
+            # Elapsedは実時間なので倍率が必要。
+            # ポリシー：GPUが割り当てられているジョブは常にGPU数で積算（interactiveでも同じ）
+            mult = elapsed_counter["ngpus"] if elapsed_counter["ngpus"] > 0 else elapsed_counter["ncpus"]
+            raw_seconds *= max(1, mult)
 
         # trace 用（ログに出すならここを返す/保存）
         reason = "class={} metric={} interactive={} gpu={}".format(
