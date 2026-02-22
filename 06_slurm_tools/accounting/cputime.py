@@ -118,6 +118,9 @@ class ISchema(ABC):
     def format_arg(cls):
         pass
 
+    def parse_line(self, line):
+        pass
+
 
 class ISacctClientBase(ABC):
     def __init__(self, sacct_path, logger, schema:ISchema, days_ago=90,
@@ -129,7 +132,8 @@ class ISacctClientBase(ABC):
         self.ssh_host = ssh_host
         self.ssh_user = ssh_user
 
-    def _parse_endtime(self, endtime):
+    @staticmethod
+    def _parse_endtime(endtime):
         """
         endtime:
           - "now"
@@ -414,6 +418,7 @@ class TimeCalculator(ICalculatorBase):
             "NodeList",
             "AllocTRES",
             "Elapsed",
+            "CPUTime",
             "TotalCPU",
             "Start",
             "End",
