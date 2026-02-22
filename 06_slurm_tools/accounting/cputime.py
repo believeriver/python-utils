@@ -110,7 +110,7 @@ class Schema(ABC):
 
 
 class SacctClientBase(ABC):
-    def __init__(self, sacct_path, logger, schema, days_ago=90,
+    def __init__(self, sacct_path, logger, schema:Schema, days_ago=90,
                  ssh_host=None, ssh_user=None):
         self.sacct_path = sacct_path
         self.log = logger
@@ -185,7 +185,6 @@ class SacctSchema(Schema):
 
 
 class SacctClient(SacctClientBase):
-
     def fetch_rows(self, endtime="now"):
         starttime = self.calc_starttime(endtime)
         cmd = []
