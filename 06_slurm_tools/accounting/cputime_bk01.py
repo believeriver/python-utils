@@ -32,9 +32,7 @@ from datetime import datetime, timedelta
 # -----------------------------
 class Config(object):
     # DEFAULT_STARTTIME = "2026-01-01"
-    DEFAULT_SPAN = 90
-    SSH_HOST = "192.168.64.2"
-    SSH_USER = "root"
+    DEFAULT_STARTTIME = 90
 
     INTERACTIVE_KEYWORDS = ["--pty", "salloc"]
     UNKNOWN_AS_CPU_BILLING = True
@@ -116,8 +114,8 @@ class SubmitClient(ABC):
 
 
 class SacctSchema(ABC):
-    def __init__(self, fields=None):
-        self.FIELDS = fields or [
+    def __init__(self):
+        self.FIELDS = [
             "JobID",
             "Elapsed",
             "CPUTime",
@@ -149,14 +147,11 @@ class SacctSchema(ABC):
 
 
 class SacctClient(object):
-    def __init__(self, sacct_path, logger, schema, days_ago=90,
-                 ssh_host=None, ssh_user=None):
+    def __init__(self, sacct_path, logger, schema: SacctSchema, day_ago=90):
         self.sacct_path = sacct_path
         self.log = logger
         self.schema = schema
-        self.days_ago = int(days_ago)
-        self.ssh_host = ssh_host
-        self.ssh_user = ssh_user
+        self.days_ago = day_ago
 
     def calc_starttime(self, endtime=None):
         """
@@ -168,39 +163,34 @@ class SacctClient(object):
             endtime = datetime.now()
 
         start = endtime - timedelta(days=self.days_ago)
+
         # sacct が素直に読める形式
         return start.strftime("%Y-%m-%dT%H:%M")
 
     def fetch_rows(self, endtime="now"):
-        starttime = self.calc_starttime(endtime)
-        cmd = []
-        if self.ssh_host:
-            user_at = "{}@{}".format(self.ssh_user, self.ssh_host) if self.ssh_user else self.ssh_host
-            cmd += ["ssh", user_at]
-
-        cmd += [
+        cmd = [
+            "ssh",
+            "root@192.168.64.2",
             self.sacct_path,
-            "--starttime", starttime,
+            "--starttime", self.calc_starttime(endtime),
             "--endtime", endtime,
             "--format", self.schema.format_arg(),
             "--parsable2",
             "-n",
         ]
-
         self.log.debug("Running sacct: %s", " ".join(cmd))
         p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         if p.returncode != 0:
             self.log.info("sacct failed rc=%s stderr=%s", p.returncode, p.stderr.strip())
             raise RuntimeError("sacct failed")
         raw_lines = [ln for ln in p.stdout.splitlines() if ln.strip()]
-
+        # self.log.debug("raw_lines: %s", raw_lines)
         # debug: raw all
         if self.log.isEnabledFor(logging.DEBUG):
             self.log.debug("RAW_ALL_BEGIN total=%d", len(raw_lines))
             for ln in raw_lines:
                 self.log.debug("RAW|%s", ln)
             self.log.debug("RAW_ALL_END")
-
         return [self.schema.parse_line(ln) for ln in raw_lines]
 
 
@@ -208,12 +198,7 @@ if __name__ == "__main__":
     log = setup_logger(Config.log_level)
     schema = SacctSchema()
     client = SacctClient(
-        sacct_path=Config.SACCT_PATH,
-        logger=log,
-        schema=schema,
-        days_ago=Config.DEFAULT_SPAN,
-        ssh_host=Config.SSH_HOST,
-        ssh_user=Config.SSH_USER,)
+        Config.SACCT_PATH, log, schema, day_ago=Config.DEFAULT_STARTTIME)
     rows = client.fetch_rows()
     for r in rows:
         log.info("ROW: %s", r)
