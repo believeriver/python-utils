@@ -110,8 +110,30 @@ class Schema(ABC):
 
 
 class SubmitClient(ABC):
+    def __init__(self, sacct_path, logger, schema, days_ago=90,
+                 ssh_host=None, ssh_user=None):
+        self.sacct_path = sacct_path
+        self.log = logger
+        self.schema = schema
+        self.days_ago = int(days_ago)
+        self.ssh_host = ssh_host
+        self.ssh_user = ssh_user
+
+    def calc_starttime(self, endtime=None):
+        """
+        days_ago: int (例: 90)
+        endtime: datetime or None (None = now)
+        return: 'YYYY-MM-DDTHH:MM'
+        """
+        if endtime is None or endtime == "now":
+            endtime = datetime.now()
+
+        start = endtime - timedelta(days=self.days_ago)
+        # sacct が素直に読める形式
+        return start.strftime("%Y-%m-%dT%H:%M")
+
     @abstractmethod
-    def run_command(self, cmd):
+    def fetch_rows(self, cmd):
         pass
 
 
@@ -148,28 +170,7 @@ class SacctSchema(ABC):
         return row
 
 
-class SacctClient(object):
-    def __init__(self, sacct_path, logger, schema, days_ago=90,
-                 ssh_host=None, ssh_user=None):
-        self.sacct_path = sacct_path
-        self.log = logger
-        self.schema = schema
-        self.days_ago = int(days_ago)
-        self.ssh_host = ssh_host
-        self.ssh_user = ssh_user
-
-    def calc_starttime(self, endtime=None):
-        """
-        days_ago: int (例: 90)
-        endtime: datetime or None (None = now)
-        return: 'YYYY-MM-DDTHH:MM'
-        """
-        if endtime is None or endtime == "now":
-            endtime = datetime.now()
-
-        start = endtime - timedelta(days=self.days_ago)
-        # sacct が素直に読める形式
-        return start.strftime("%Y-%m-%dT%H:%M")
+class SacctClient(SubmitClient):
 
     def fetch_rows(self, endtime="now"):
         starttime = self.calc_starttime(endtime)
