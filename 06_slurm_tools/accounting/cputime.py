@@ -211,6 +211,7 @@ class SacctClient(SacctClientBase):
 
         # debug: raw all
         if self.log.isEnabledFor(logging.DEBUG):
+            self.log.debug("Query range: %s -> %s", starttime, endtime)
             self.log.debug("RAW_ALL_BEGIN total=%d", len(raw_lines))
             for ln in raw_lines:
                 self.log.debug("RAW|%s", ln)
