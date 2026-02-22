@@ -402,7 +402,7 @@ class TimeCalculator(ICalculatorBase):
 
     def build_final_row(
             self, parent_row, cpu_sums, raw=None,
-            bill_mode=None, interactive=None, reason=None):
+            bill_mode=None, chosen_class=None, reason=None):
         # dict dataset: keep meta + seconds + decision
         final = {}
         fields = [
@@ -413,6 +413,9 @@ class TimeCalculator(ICalculatorBase):
             "NCPUS",
             "NodeList",
             "AllocTRES",
+            "Elapsed",
+            "TotalCPU",
+            "Start",
             "End",
             "State",
             "SubmitLine"]
@@ -424,7 +427,7 @@ class TimeCalculator(ICalculatorBase):
             "CPUTime_s": self.tools.to_seconds(parent_row.get("CPUTime", "")),
             "BillMode": bill_mode,
             "BillSeconds_raw": raw,
-            "Interactive": interactive,
+            "chosen_class": chosen_class,
             "DecisionNote": reason,
         })
         return final
@@ -464,10 +467,11 @@ class App(object):
             days_ago=Config.DEFAULT_SPAN,
             ssh_host=Config.SSH_HOST,
             ssh_user=Config.SSH_USER,)
-        self.rows = client.fetch_rows()
-        self.dataset = DatasetCpuBuilder(logger=self.logger).build(self.rows)
         calculator = TimeCalculator(logger=self.logger)
         engine = BillingEngine(logger=self.logger, calculator=calculator)
+
+        self.rows = client.fetch_rows()
+        self.dataset = DatasetCpuBuilder(logger=self.logger).build(self.rows)
         self.dataset = engine.process(self.dataset)
 
     def debug_print(self):
