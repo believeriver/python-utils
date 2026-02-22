@@ -22,26 +22,6 @@ import re
 import sys
 import math
 import csv
-import logging
-
-
-# -----------------------------
-# Logging
-# -----------------------------
-def setup_logger(level):
-    logger = logging.getLogger("slurm_billing")
-    logger.setLevel(level)
-
-    # Avoid duplicate handlers if re-imported
-    if not logger.handlers:
-        h = logging.StreamHandler()
-        fmt = logging.Formatter(
-            "%(asctime)s %(levelname)s %(name)s: %(message)s"
-        )
-        h.setFormatter(fmt)
-        logger.addHandler(h)
-
-    return logger
 
 
 # -----------------------------
@@ -50,20 +30,21 @@ def setup_logger(level):
 class Config(object):
     DEFAULT_STARTTIME = "2026-01-01"
 
+    # interactive detection keywords (lowercase check)
     INTERACTIVE_KEYWORDS = ["--pty", "salloc"]
 
+    # if SubmitLine missing/empty: safe fallback to CPU billing (avoid overcharge)
     UNKNOWN_AS_CPU_BILLING = True
+
+    # interactive billing: True -> CPUTime (occupied), False -> TotalCPU (actual)
     USE_OCCUPIED_FOR_INTERACTIVE = True
 
+    # rounding
     ROUND_UNIT_SECONDS = 60
     ROUND_MODE = "ceil"   # "ceil" / "floor" / "round" / "none"
     MIN_BILLABLE_SECONDS = 0
 
-    SACCT_PATH = "sacct"
-
-    # Debug sampling sizes
-    DEBUG_SAMPLE_RAW_LINES = 3
-    DEBUG_SAMPLE_ROWS = 2
+    SACCT_PATH = "/usr/bin/sacct"
 
 
 # -----------------------------
@@ -72,6 +53,14 @@ class Config(object):
 class SlurmTime(object):
     @staticmethod
     def to_seconds(t):
+        """
+        Convert SLURM time string to seconds (float).
+        Formats:
+          - DD-HH:MM:SS[.mmm]
+          - HH:MM:SS[.mmm]
+          - MM:SS[.mmm]  (e.g. 18:07.645 or 00:00.054)
+          - SS[.mmm]
+        """
         if not t:
             return 0.0
         t = t.strip()
@@ -114,6 +103,7 @@ class RoundingPolicy(object):
         if seconds < 0:
             seconds = 0.0
 
+        # Minimum billable
         if self.min_seconds > 0 and seconds > 0 and seconds < self.min_seconds:
             seconds = self.min_seconds
 
@@ -127,6 +117,7 @@ class RoundingPolicy(object):
         if self.mode == "floor":
             return math.floor(q) * self.unit
         if self.mode == "round":
+            # billing-friendly round: floor(x+0.5)
             return math.floor(q + 0.5) * self.unit
 
         return seconds
@@ -136,6 +127,11 @@ class RoundingPolicy(object):
 # Sacct schema + parser
 # -----------------------------
 class SacctSchema(object):
+    """
+    Single source of truth for sacct fields.
+    If you want to change sacct --format, change FIELDS here.
+    Downstream code should only reference keys, not column positions.
+    """
     FIELDS = [
         "JobID",
         "Elapsed",
@@ -160,10 +156,14 @@ class SacctSchema(object):
 
     @classmethod
     def parse_line(cls, line):
+        """
+        Return dict row: {field: value, ...}
+        parsable2 returns '|' separated fields in the order of --format.
+        """
         cols = line.split("|")
+        # tolerate missing trailing fields
         if len(cols) < len(cls.FIELDS):
             cols = cols + [""] * (len(cls.FIELDS) - len(cols))
-
         row = {}
         for i, k in enumerate(cls.FIELDS):
             row[k] = cols[i] if i < len(cols) else ""
@@ -171,9 +171,8 @@ class SacctSchema(object):
 
 
 class SacctClient(object):
-    def __init__(self, sacct_path, logger):
+    def __init__(self, sacct_path):
         self.sacct_path = sacct_path
-        self.log = logger
 
     def fetch_rows(self, starttime, endtime="now"):
         cmd = [
@@ -186,57 +185,40 @@ class SacctClient(object):
             "--parsable2",
             "-n",
         ]
-
-        self.log.debug("Running sacct: %s", " ".join(cmd))
-
         p = subprocess.run(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
         )
         if p.returncode != 0:
-            self.log.info("sacct failed (rc=%s). stderr=%s", p.returncode, p.stderr.strip())
-            raise RuntimeError("sacct failed")
-
-        raw_lines = [ln for ln in p.stdout.splitlines() if ln.strip()]
-        self.log.debug("sacct returned %d non-empty lines", len(raw_lines))
-
-        for i, ln in enumerate(raw_lines[:Config.DEBUG_SAMPLE_RAW_LINES]):
-            self.log.debug("RAW[%d]: %s", i, ln)
+            sys.stderr.write("ERROR: sacct failed\n")
+            sys.stderr.write(p.stderr)
+            sys.exit(2)
 
         rows = []
-        for ln in raw_lines:
-            rows.append(SacctSchema.parse_line(ln))
-
-        for i, r in enumerate(rows[:Config.DEBUG_SAMPLE_ROWS]):
-            # show a subset of keys for readability
-            self.log.debug(
-                "ROW[%d] JobID=%s JobName=%s User=%s Part=%s Elapsed=%s TotalCPU=%s CPUTime=%s State=%s SubmitLine=%s",
-                i,
-                r.get("JobID"), r.get("JobName"), r.get("User"), r.get("Partition"),
-                r.get("Elapsed"), r.get("TotalCPU"), r.get("CPUTime"), r.get("State"),
-                (r.get("SubmitLine") or "")[:80]
-            )
-
+        for line in p.stdout.splitlines():
+            if not line.strip():
+                continue
+            rows.append(SacctSchema.parse_line(line))
         return rows
 
 
 # -----------------------------
-# Dataset builder
+# Dataset builder (dict-based)
 # -----------------------------
 class DatasetBuilder(object):
+    """
+    Build dict dataset from sacct dict rows.
+    """
     STEP_RE = re.compile(r"^(\d+)\.(.+)$")
     JOB_RE = re.compile(r"^\d+$")
 
-    def __init__(self, logger):
-        self.log = logger
-
     def build(self, rows):
-        dataset = {"parents": {}, "steps": {}}
+        dataset = {
+            "parents": {},     # jobid -> parent row dict
+            "steps": {},       # jobid -> list of step row dict
+        }
 
         for r in rows:
             jobid = (r.get("JobID") or "").strip()
-            if not jobid:
-                self.log.debug("Skipping row with empty JobID: %s", r)
-                continue
 
             m = self.STEP_RE.match(jobid)
             if m:
@@ -245,45 +227,24 @@ class DatasetBuilder(object):
                 continue
 
             if self.JOB_RE.match(jobid):
+                # keep parent row
                 dataset["parents"][jobid] = r
                 continue
-
-            # ignore others
-            self.log.debug("Ignoring non-job/non-step JobID=%s", jobid)
-
-        self.log.debug("Dataset built: parents=%d steps(parents with steps)=%d",
-                       len(dataset["parents"]), len(dataset["steps"]))
-
-        # show a few examples
-        if dataset["parents"]:
-            sample = sorted(dataset["parents"].keys(), key=lambda x: int(x))[:3]
-            for jid in sample:
-                pr = dataset["parents"][jid]
-                self.log.debug("PARENT sample jobid=%s JobName=%s SubmitLine=%s",
-                               jid, pr.get("JobName"), (pr.get("SubmitLine") or "")[:80])
-
-        if dataset["steps"]:
-            sample = sorted(dataset["steps"].keys(), key=lambda x: int(x))[:3]
-            for jid in sample:
-                self.log.debug("STEPS sample jobid=%s step_count=%d step_jobids=%s",
-                               jid, len(dataset["steps"][jid]),
-                               [s.get("JobID") for s in dataset["steps"][jid][:5]])
 
         return dataset
 
 
 # -----------------------------
-# Pipeline
+# Aggregation + classification + billing (dict-in, dict-out)
 # -----------------------------
 class BillingPipeline(object):
-    def __init__(self, cfg, logger):
+    def __init__(self, cfg):
         self.cfg = cfg
-        self.log = logger
         self.rounding = RoundingPolicy(cfg.ROUND_UNIT_SECONDS, cfg.ROUND_MODE, cfg.MIN_BILLABLE_SECONDS)
 
     def is_interactive(self, submitline):
         if not submitline:
-            return None
+            return None  # unknown
         s = submitline.lower()
         for k in self.cfg.INTERACTIVE_KEYWORDS:
             if k in s:
@@ -291,44 +252,46 @@ class BillingPipeline(object):
         return False
 
     def sum_steps_cpu(self, step_rows):
+        """
+        Sum TotalCPU/UserCPU/SystemCPU from step rows.
+        Returns dict with *_s keys.
+        """
         total = 0.0
         user = 0.0
         sysc = 0.0
-
-        # Debug: show step rows being summed
-        self.log.debug("Summing %d step rows", len(step_rows))
-        for r in step_rows[:5]:
-            self.log.debug("  step JobID=%s TotalCPU=%s UserCPU=%s SystemCPU=%s",
-                           r.get("JobID"), r.get("TotalCPU"), r.get("UserCPU"), r.get("SystemCPU"))
-
         for r in step_rows:
             total += SlurmTime.to_seconds(r.get("TotalCPU", ""))
             user += SlurmTime.to_seconds(r.get("UserCPU", ""))
             sysc += SlurmTime.to_seconds(r.get("SystemCPU", ""))
-
         return {"TotalCPU_s": total, "UserCPU_s": user, "SystemCPU_s": sysc}
 
-    def pick_cpu_source(self, jobid, parent_row, step_rows):
+    def pick_cpu_source(self, parent_row, step_rows):
+        """
+        CPU aggregation policy:
+          - if step rows exist -> use step sums (avoid double-count)
+          - else -> use parent row CPU fields (needed for some srun jobs)
+        """
         if step_rows:
             sums = self.sum_steps_cpu(step_rows)
             sums["CPU_source"] = "steps"
-            self.log.debug("CPU source for jobid=%s: steps (step_count=%d) TotalCPU_s=%.3f",
-                           jobid, len(step_rows), sums["TotalCPU_s"])
             return sums
 
+        # parent fallback
         sums = {
             "TotalCPU_s": SlurmTime.to_seconds(parent_row.get("TotalCPU", "")),
             "UserCPU_s": SlurmTime.to_seconds(parent_row.get("UserCPU", "")),
             "SystemCPU_s": SlurmTime.to_seconds(parent_row.get("SystemCPU", "")),
             "CPU_source": "parent",
         }
-        self.log.debug("CPU source for jobid=%s: parent TotalCPU=%s (%.3f sec)",
-                       jobid, parent_row.get("TotalCPU", ""), sums["TotalCPU_s"])
         return sums
 
-    def bill_seconds(self, jobid, parent_row, cpu_sums):
+    def bill_seconds(self, parent_row, cpu_sums):
+        """
+        Determine bill seconds based on interactive/batch and config.
+        Returns dict: bill_mode, raw, rounded, interactive, decision_note
+        """
         elapsed_s = SlurmTime.to_seconds(parent_row.get("Elapsed", ""))
-        cputime_s = SlurmTime.to_seconds(parent_row.get("CPUTime", ""))
+        cputime_s = SlurmTime.to_seconds(parent_row.get("CPUTime", ""))  # occupied = elapsed*ncpus
         totalcpu_s = cpu_sums["TotalCPU_s"]
 
         submit = (parent_row.get("SubmitLine") or "").strip()
@@ -347,6 +310,7 @@ class BillingPipeline(object):
             mode = "cpu"
             note = "batch -> TotalCPU"
         else:
+            # unknown (missing SubmitLine)
             if self.cfg.UNKNOWN_AS_CPU_BILLING:
                 raw = totalcpu_s
                 mode = "cpu"
@@ -357,13 +321,6 @@ class BillingPipeline(object):
                 note = "SubmitLine missing -> occupied"
 
         rounded = self.rounding.apply(raw)
-
-        # Debug billing decision
-        self.log.debug(
-            "BILL jobid=%s interactive=%s mode=%s raw=%.3f rounded=%.3f elapsed=%.1f cputime=%.1f totalcpu=%.3f note=%s submit=%s",
-            jobid, interactive, mode, raw, rounded, elapsed_s, cputime_s, totalcpu_s, note,
-            (submit[:80] if submit else "N/A")
-        )
 
         return {
             "Elapsed_s": elapsed_s,
@@ -377,30 +334,37 @@ class BillingPipeline(object):
         }
 
     def run(self, dataset):
+        """
+        dataset in:
+          {"parents":{jobid:row}, "steps":{jobid:[row,...]}}
+        dataset out:
+          dataset["step_sums"], dataset["final"]
+        """
         parents = dataset.get("parents", {})
         steps = dataset.get("steps", {})
 
-        dataset["step_sums"] = {}
-        dataset["final"] = {}
+        dataset["step_sums"] = {}  # jobid -> cpu sums dict
+        dataset["final"] = {}      # jobid -> final dict (flattened for report)
 
         for jobid, prow in parents.items():
             step_rows = steps.get(jobid, [])
-            cpu_sums = self.pick_cpu_source(jobid, prow, step_rows)
+            cpu_sums = self.pick_cpu_source(prow, step_rows)
             dataset["step_sums"][jobid] = cpu_sums
 
-            bill = self.bill_seconds(jobid, prow, cpu_sums)
+            bill = self.bill_seconds(prow, cpu_sums)
 
+            # build final row dict (still dict-based)
             final = {}
-            for k in ["JobID", "User", "JobName", "Partition", "NCPUS", "NodeList",
-                      "AllocTRES", "End", "State", "SubmitLine"]:
+            # copy some meta fields (use keys; missing ok)
+            for k in ["JobID", "User", "JobName", "Partition", "NCPUS", "NodeList", "AllocTRES", "End", "State", "SubmitLine"]:
                 final[k] = prow.get(k, "")
 
+            # add seconds fields
             final.update(cpu_sums)
             final.update(bill)
 
             dataset["final"][jobid] = final
 
-        self.log.debug("Pipeline finished: final rows=%d", len(dataset["final"]))
         return dataset
 
 
@@ -410,6 +374,7 @@ class BillingPipeline(object):
 class Reporter(object):
     @staticmethod
     def print_table(final_map):
+        # Minimal audit-friendly columns (same idea as before)
         header = [
             "JobID", "User", "JobName", "Part", "NCPUS",
             "Elapsed(s)", "CPUTime(s)", "TotalCPU(s)",
@@ -441,6 +406,7 @@ class Reporter(object):
 
     @staticmethod
     def write_csv(path, final_map):
+        # Write everything useful for audit
         fields = [
             "JobID", "End", "User", "JobName", "Partition", "NodeList", "NCPUS", "AllocTRES",
             "State", "SubmitLine",
@@ -454,16 +420,38 @@ class Reporter(object):
             w.writeheader()
             for jid in sorted(final_map.keys(), key=lambda x: int(x)):
                 r = final_map[jid]
-                w.writerow({k: r.get(k, "") for k in fields})
+                w.writerow({
+                    "JobID": r.get("JobID", jid),
+                    "End": r.get("End", ""),
+                    "User": r.get("User", ""),
+                    "JobName": r.get("JobName", ""),
+                    "Partition": r.get("Partition", ""),
+                    "NodeList": r.get("NodeList", ""),
+                    "NCPUS": r.get("NCPUS", ""),
+                    "AllocTRES": r.get("AllocTRES", ""),
+                    "State": r.get("State", ""),
+                    "SubmitLine": r.get("SubmitLine", ""),
+                    "Elapsed_s": r.get("Elapsed_s", 0.0),
+                    "CPUTime_s": r.get("CPUTime_s", 0.0),
+                    "TotalCPU_s": r.get("TotalCPU_s", 0.0),
+                    "UserCPU_s": r.get("UserCPU_s", 0.0),
+                    "SystemCPU_s": r.get("SystemCPU_s", 0.0),
+                    "CPU_source": r.get("CPU_source", ""),
+                    "Interactive": r.get("Interactive"),
+                    "BillMode": r.get("BillMode", ""),
+                    "BillSeconds_raw": r.get("BillSeconds_raw", 0.0),
+                    "BillSeconds_rounded": r.get("BillSeconds_rounded", 0.0),
+                    "DecisionNote": r.get("DecisionNote", ""),
+                })
 
 
 # -----------------------------
-# CLI
+# App
 # -----------------------------
 def parse_args(argv):
+    # billing_slurm_cpu.py [starttime] [--csv out.csv]
     starttime = Config.DEFAULT_STARTTIME
     csv_path = None
-    log_level = logging.WARNING  # default quiet
 
     i = 1
     while i < len(argv):
@@ -472,42 +460,27 @@ def parse_args(argv):
             csv_path = argv[i + 1]
             i += 2
             continue
-        if a == "--debug":
-            log_level = logging.DEBUG
-            i += 1
-            continue
-        if a == "--info":
-            log_level = logging.INFO
-            i += 1
-            continue
-
         starttime = a
         i += 1
 
-    return starttime, csv_path, log_level
+    return starttime, csv_path
 
 
 def main(argv):
-    starttime, csv_path, log_level = parse_args(argv)
-    logger = setup_logger(log_level)
+    starttime, csv_path = parse_args(argv)
 
-    try:
-        rows = SacctClient(Config.SACCT_PATH, logger).fetch_rows(starttime=starttime, endtime="now")
-        dataset = DatasetBuilder(logger).build(rows)
-        dataset = BillingPipeline(Config, logger).run(dataset)
-        final_map = dataset.get("final", {})
-        Reporter.print_table(final_map)
+    client = SacctClient(Config.SACCT_PATH)
+    rows = client.fetch_rows(starttime=starttime, endtime="now")
 
-        if csv_path:
-            Reporter.write_csv(csv_path, final_map)
-            print("\nCSV written to: {}".format(csv_path))
+    dataset = DatasetBuilder().build(rows)
+    dataset = BillingPipeline(Config).run(dataset)
 
-    except Exception as e:
-        # INFO level: show error summary
-        logger.info("Fatal error: %s", str(e))
-        # DEBUG: stack trace
-        logger.debug("Exception details", exc_info=True)
-        sys.exit(1)
+    final_map = dataset.get("final", {})
+    Reporter.print_table(final_map)
+
+    if csv_path:
+        Reporter.write_csv(csv_path, final_map)
+        print("\nCSV written to: {}".format(csv_path))
 
 
 if __name__ == "__main__":
