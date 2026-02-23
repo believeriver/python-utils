@@ -513,27 +513,25 @@ class IReporterBase(ABC):
     def __init__(self, logger):
         self.log = logger
 
-    @staticmethod
     @abstractmethod
-    def print_table(final_map):
+    def print_table(self, final_map):
         pass
 
 
 class BillReporter(IReporterBase):
-    @staticmethod
-    def print_table(final_map):
+    def print_table(self, final_map):
         for jid in sorted(final_map.keys(), key=lambda x: int(x)):
             r = final_map[jid]
             nums = int(r.get("NGPUs", ""))
-            print(r.get("Partition", ""))
-            print('NGPUs', nums)
+            self.log.debug(r.get("Partition", ""))
+            self.log.debug({'NGPUs': nums})
             if nums == 0:
                 nums = r.get("NCPUS") or 0  # NCPUS
                 nums = int(nums)
-                print('NCPUS', nums)
+                self.log.debug({'NCPUS': nums})
             else:
                 nums *= int(Config.GPU_SM_TABLE[r.get("Partition", "")])
-                print(nums)# Partに応じたGPUあたりのNCPUS換算
+                self.log.debug(nums)# Partに応じたGPUあたりのNCPUS換算
 
             row = [
                 (r.get("User", "") or ""),  # User
@@ -547,8 +545,7 @@ class BillReporter(IReporterBase):
 
 
 class DebugReporter(IReporterBase):
-    @staticmethod
-    def print_table(final_map):
+    def print_table(self, final_map):
         header = [
             "JobID",
             "User",
@@ -646,14 +643,19 @@ class App(object):
     def debug_print(self):
         print('')
         self.logger.info(json.dumps(self.bull_datasets, indent=2, ensure_ascii=False))
-        DebugReporter.print_table(self.bull_datasets)
-        BillReporter.print_table(self.bull_datasets)
+        reporter = DebugReporter(logger=self.logger)
+        reporter.print_table(self.bull_datasets)
+
+    def print(self):
+        reporter = BillReporter(logger=self.logger)
+        reporter.print_table(self.bull_datasets)
 
 
 if __name__ == "__main__":
     app = App()
     app.run()
     app.debug_print()
+    app.print()
 
     gc.collect()
 
