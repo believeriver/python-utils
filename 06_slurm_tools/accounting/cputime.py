@@ -390,7 +390,8 @@ class TimeCalculator(ICalculatorBase):
         alloc_tres = (parent_row.get("AllocTRES") or "").strip()
         gpu_job = bool(self.ctx["gpu_classifier"].matches(alloc_tres))
 
-        print(alloc_tres)
+        # debug print
+        self.log.debug({"alloc_tres": alloc_tres, "gpu_job": gpu_job, "interactive": interactive})
 
         # num of CPUs/GPUs to consider for elapsed-based billing (例: 2 GPUsなら実時間の2倍にする)
         elapsed_counter = {
@@ -489,8 +490,8 @@ class BillingEngine(object):
             final_row = self.calculator.calculate(jobid, parent_row, step_rows)
             final[jobid] = final_row
 
-        dataset["final"] = final
-        return dataset
+        # dataset["final"] = final
+        return final
 
 
 class App(object):
@@ -516,8 +517,8 @@ class App(object):
         self.dataset = engine.process(self.dataset)
 
     def debug_print(self):
-        for r in self.rows:
-            self.logger.info("ROW: %s", r)
+        # for r in self.rows:
+        #     self.logger.info("ROW: %s", r)
 
         print('')
         self.logger.info(json.dumps(self.dataset, indent=2, ensure_ascii=False))
