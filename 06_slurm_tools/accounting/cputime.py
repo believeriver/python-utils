@@ -237,6 +237,7 @@ class SacctClient(ISacctClientBase):
     def fetch_rows(self, endtime="now"):
         # starttime = self.calc_starttime(endtime)
         starttime, endtime2 = self.calc_range(endtime=endtime)
+        self.log.debug({"starttime": starttime, "endtime": endtime2})
         cmd = []
         if self.ssh_host:
             user_at = "{}@{}".format(self.ssh_user, self.ssh_host) if self.ssh_user else self.ssh_host
