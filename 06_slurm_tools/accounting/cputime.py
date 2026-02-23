@@ -347,7 +347,7 @@ class TimeCalculator(ICalculatorBase):
         alloc_tres = alloc_tres.strip().lower()
         gpu_count = 0
         for part in alloc_tres.split(","):
-            if part.startswith("gpu="):
+            if part.startswith("gpu=") or part.startswith("gres/gpu="):
                 try:
                     gpu_count += int(part.split("=", 1)[1])
                 except ValueError:
@@ -356,8 +356,16 @@ class TimeCalculator(ICalculatorBase):
 
     def calculate(self, jobid, parent_row, step_rows):
         cpu_source, cpu_sums = self.select_cpu_source(parent_row, step_rows)
-        raw_seconds, metric, chosen_class, reason = self.compute_raw(jobid, parent_row, cpu_sums)
-        final_row = self.build_final_row(parent_row, cpu_sums, raw_seconds, chosen_class, reason)
+        raw_seconds, metric, chosen_class, ngpus, reason = self.compute_raw(jobid, parent_row, cpu_sums)
+        final_row = self.build_final_row(
+            parent_row=parent_row,
+            cpu_sums=cpu_sums,
+            raw=raw_seconds,
+            bill_mode=metric,
+            chosen_class=chosen_class,
+            ngpus=ngpus,
+            reason=reason,
+        )
         return final_row
 
     def select_cpu_source(self, parent_row, step_rows):
@@ -381,6 +389,8 @@ class TimeCalculator(ICalculatorBase):
 
         alloc_tres = (parent_row.get("AllocTRES") or "").strip()
         gpu_job = bool(self.ctx["gpu_classifier"].matches(alloc_tres))
+
+        print(alloc_tres)
 
         # num of CPUs/GPUs to consider for elapsed-based billing (例: 2 GPUsなら実時間の2倍にする)
         elapsed_counter = {
@@ -427,11 +437,11 @@ class TimeCalculator(ICalculatorBase):
             chosen_class, metric, interactive, gpu_job
         )
 
-        return raw_seconds, metric, chosen_class, reason
+        return raw_seconds, metric, chosen_class, elapsed_counter['ngpus'], reason
 
     def build_final_row(
             self, parent_row, cpu_sums, raw=None,
-            bill_mode=None, chosen_class=None, reason=None):
+            bill_mode=None, chosen_class=None, ngpus=None, reason=None):
         # dict dataset: keep meta + seconds + decision
         final = {}
         fields = [
@@ -455,6 +465,7 @@ class TimeCalculator(ICalculatorBase):
         final.update({
             "Elapsed_s": self.tools.to_seconds(parent_row.get("Elapsed", "")),
             "CPUTime_s": self.tools.to_seconds(parent_row.get("CPUTime", "")),
+            "NGPUs": ngpus,
             "BillMode": bill_mode,
             "BillSeconds_raw": raw,
             "chosen_class": chosen_class,
