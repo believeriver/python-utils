@@ -34,8 +34,8 @@ import gc
 # -----------------------------
 class Config(object):
     # DEFAULT_STARTTIME = "2026-01-01"
-    # DEFAULT_SPAN = 90
-    DEFAULT_SPAN = 0
+    DEFAULT_SPAN = 90
+    # DEFAULT_SPAN = 0
     SSH_HOST = "192.168.64.2"
     SSH_USER = "root"
 
@@ -56,7 +56,7 @@ class Config(object):
 
     #
     GPU_SM_TABLE = {
-        "part1": 132,
+        "part2": 132,
     }
 
     SACCT_PATH = "/usr/bin/sacct"
@@ -141,33 +141,49 @@ class ISacctClientBase(ABC):
         endtime:
           - "now"
           - None
+          - "YYYY-MM-DD"
           - "YYYY-MM-DDTHH:MM"
         """
         if endtime is None or endtime == "now":
             return datetime.now()
 
+        # 日付だけ
+        try:
+            return datetime.strptime(endtime, "%Y-%m-%d")
+        except ValueError:
+            pass
+
+        # 日時（分まで）
         try:
             return datetime.strptime(endtime, "%Y-%m-%dT%H:%M")
         except ValueError:
             raise ValueError("Unsupported endtime format: %s" % endtime)
 
-    def calc_starttime(self, endtime=None):
+    def calc_range(self, endtime=None):
         """
-        days_ago: int (例: 90)
-        endtime: datetime or None (None = now)
-        return: 'YYYY-MM-DDTHH:MM'
+        return (start_str, end_str) in "YYYY-MM-DDTHH:MM"
+        days_ago:
+          0 => 指定日の 00:00 - 23:59:59（= 1日分）
+          N => 指定日を含めて N+1日分（例: N=1 なら前日+当日の2日分）
         """
         end_dt = self._parse_endtime(endtime)
-        # start = end_dt - timedelta(days=self.days_ago)
-        if self.days_ago == 0:
-            # 指定日の 00:00
-            start = end_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-            end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=0)
-        else:
-            start = end_dt - timedelta(days=self.days_ago)
 
-        # sacct が素直に読める形式
-        return start.strftime("%Y-%m-%dT%H:%M")
+        # 指定日の範囲に丸める
+        day_start = end_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = end_dt.replace(hour=23, minute=59, second=59, microsecond=0)
+
+        if self.days_ago == 0:
+            start_dt = day_start
+            end_dt2 = day_end
+        else:
+            # 例: days_ago=1 なら「前日0時」から
+            start_dt = day_start - timedelta(days=self.days_ago)
+            end_dt2 = day_end
+
+        return (
+            start_dt.strftime("%Y-%m-%dT%H:%M"),
+            end_dt2.strftime("%Y-%m-%dT%H:%M"),
+        )
 
     @abstractmethod
     def fetch_rows(self, endtime="now"):
@@ -219,7 +235,8 @@ class SacctCpuSchema(ISchema):
 
 class SacctClient(ISacctClientBase):
     def fetch_rows(self, endtime="now"):
-        starttime = self.calc_starttime(endtime)
+        # starttime = self.calc_starttime(endtime)
+        starttime, endtime2 = self.calc_range(endtime=endtime)
         cmd = []
         if self.ssh_host:
             user_at = "{}@{}".format(self.ssh_user, self.ssh_host) if self.ssh_user else self.ssh_host
@@ -228,7 +245,7 @@ class SacctClient(ISacctClientBase):
         cmd += [
             self.sacct_path,
             "--starttime", starttime,
-            "--endtime", endtime,
+            "--endtime", endtime2,
             "--format", self.schema.format_arg(),
             "--parsable2",
             "-n",
@@ -250,6 +267,26 @@ class SacctClient(ISacctClientBase):
             self.log.debug("RAW_ALL_END")
 
         return [self.schema.parse_line(ln) for ln in raw_lines]
+
+
+class SacctParserEnd(object):
+    """sacctのEnd/Startをパースして、指定日の範囲内か判定するユーティリティクラス（必要に応じて拡張）"""
+    @staticmethod
+    def end_in_range(row, day_start, day_end, log=None):
+        def parse_slurm_dt(s):
+            # sacct の End/Start: "YYYY-MM-DDTHH:MM:SS"
+            return datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
+
+        end_s = (row.get("End") or "").strip()
+        if not end_s:
+            return False
+        try:
+            end_dt = parse_slurm_dt(end_s)
+        except ValueError:
+            if log:
+                log.info("Bad End format: End=%r JobID=%r", end_s, row.get("JobID"))
+            return False
+        return day_start <= end_dt <= day_end
 
 
 class DatasetCpuBuilder(IDatasetBuilderBase):
@@ -649,11 +686,16 @@ class DebugReporter(IReporterBase):
 class App(object):
     def __init__(self):
         self.rows = None
+        self.rows_end = None
         self.dataset = None
         self.bull_datasets = None
         self.logger = setup_logger(Config.log_level)
 
     def run(self):
+        target_day = "2026-02-23"
+        day_start = datetime.strptime(target_day, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = datetime.strptime(target_day, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=0)
+
         cpu_schema = SacctCpuSchema()
         client = SacctClient(
             sacct_path=Config.SACCT_PATH,
@@ -665,8 +707,9 @@ class App(object):
         calculator = TimeCalculator(logger=self.logger)
         engine = BillingEngine(logger=self.logger, calculator=calculator)
 
-        self.rows = client.fetch_rows()
-        self.dataset = DatasetCpuBuilder(logger=self.logger).build(self.rows)
+        self.rows = client.fetch_rows(endtime=target_day)
+        self.rows_end = [r for r in self.rows if SacctParserEnd.end_in_range(r, day_start, day_end, log=self.logger)]
+        self.dataset = DatasetCpuBuilder(logger=self.logger).build(self.rows_end)
         self.bull_datasets = engine.process(self.dataset)
 
     def debug_print(self):
