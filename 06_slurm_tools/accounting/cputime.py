@@ -829,7 +829,6 @@ def parse_args(argv):
 def main(argv=None):
     target, log_level, gpu_only, debug, info = parse_args(argv)
     Config.log_level = log_level
-    print(gpu_only)
     app = App(target_day=target, gpu_only=gpu_only)
     app.run()
     if info:
