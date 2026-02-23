@@ -4,19 +4,38 @@ Created by @nobuyuki on 2026-02-23.
 Version 0.1.0 2026-02-22: Initial version.
 
 Key points:
-- sacct output is parsed into dict rows: {field: value, ...}
-- dataset is also dict-based:
+
+- sacct output is parsed into dict rows:
+    {field: value, ...}
+
+- dataset is dict-based and separated into parents / steps:
+
     dataset = {
         "parents": {jobid: parent_row_dict},
-        "steps": {jobid: [step_row_dict, ...]},
-        "step_sums": {jobid: {"TotalCPU_s":..., "UserCPU_s":..., "SystemCPU_s":...}},
-        "final": {jobid: final_row_dict_with_seconds_and_billing_fields}
+        "steps": {jobid: [step_row_dict, ...]}
     }
+
+  (step-based CPU sums and final billing rows are generated later by BillingEngine)
+
 - CPU aggregation policy:
     if any step rows exist for jobid -> use step sums only
-    else -> use parent row CPU fields
-- Interactive classification by SubmitLine: contains "--pty" or "salloc"
-- Billing mode switchable by config
+    else -> fallback to parent row CPU fields
+
+- Billing target selection (A-mode):
+    only parent jobs whose End timestamp falls within target day are billed;
+    corresponding step rows are always retained for CPU aggregation
+
+- Interactive jobs are detected by SubmitLine ("--pty" or "salloc")
+
+- GPU jobs are detected by Partition name (Config.GPU_SM_TABLE)
+
+- Billing metric (TotalCPU / Elapsed) is configurable per job class
+  (cpu / gpu / interactive) via Config
+
+- Cluster filtering:
+    --gpu option selects GPU partitions only;
+    default selects CPU partitions only
+
 """
 from abc import ABC, abstractmethod
 import re
