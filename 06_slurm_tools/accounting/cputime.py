@@ -522,24 +522,45 @@ class BillReporter(IReporterBase):
     def print_table(self, final_map):
         for jid in sorted(final_map.keys(), key=lambda x: int(x)):
             r = final_map[jid]
+
+            partition = r.get("Partition", "")
             nums = int(r.get("NGPUs", ""))
-            self.log.debug(r.get("Partition", ""))
+            elapsed = r.get("Elapsed_s", 0.0)
+            bill_seconds = r.get("BillSeconds_raw", 0.0)
+            sm = int(Config.GPU_SM_TABLE[partition]) if partition in Config.GPU_SM_TABLE else 0
+
+            self.log.debug({"Partition": partition})
             self.log.debug({'NGPUs': nums})
+            self.log.debug({"Elapsed": elapsed})
+            self.log.debug({'BillSeconds_raw': bill_seconds})
+            self.log.debug({"GPU SM": sm})
+
             if nums == 0:
+                # CPU
                 nums = r.get("NCPUS") or 0  # NCPUS
                 nums = int(nums)
                 self.log.debug({'NCPUS': nums})
             else:
-                nums *= int(Config.GPU_SM_TABLE[r.get("Partition", "")])
-                self.log.debug(nums)# Partに応じたGPUあたりのNCPUS換算
+                # GPU
+                # GPUジョブのプロセス数はSMを積算する（例: 2 GPU x 132 SM = 264 NCPUS相当）
+                nums *= sm
+                bill_seconds *= sm
+                self.log.debug({'GPU processes(GPUs * SM)': nums})# Partに応じたGPUあたりのNCPUS換算
+                self.log.debug({'GPU bill seconds(Elapsed * NGPUs * SM)': bill_seconds})
+
+            if bill_seconds > 0:
+                etc = 1.0
+            else:
+                etc = 0.0
 
             row = [
+                partition,  # Part
                 (r.get("User", "") or ""),  # User
-                (r.get("Partition", "") or "")[:8],  # Part
                 r.get("Start", ""),  # Start
                 r.get("End", ""),  # End
                 str(nums),  # NCPUS or GPU換算NCPUS
-                r.get("BillSeconds_raw", 0.0),  # Bill(raw)
+                bill_seconds,  # Bill(raw)
+                etc,
             ]
             print(",".join(str(x) for x in row))
 
@@ -642,7 +663,7 @@ class App(object):
 
     def debug_print(self):
         print('')
-        self.logger.info(json.dumps(self.bull_datasets, indent=2, ensure_ascii=False))
+        self.logger.debug(json.dumps(self.bull_datasets, indent=2, ensure_ascii=False))
         reporter = DebugReporter(logger=self.logger)
         reporter.print_table(self.bull_datasets)
 
