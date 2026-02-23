@@ -509,18 +509,18 @@ class Reporter(object):
             "Part",
             "NCPUS",
             "NGPUS",
-            "Start",
+            # "Start",
             "End",
             "Elapsed",
-            "CPUTime",
+            # "CPUTime",
             "TotalCPU",
             "Elapsed(s)",
             "CPUTime(s)",
             "TotalCPU(s)",
             "BillMode",
+            "Type",
             "Bill(raw)",
         ]
-        # fmt = "{:<6s} {:<8s} {:<10s} {:<6s} {:>5s} {:>10s} {:>10s} {:>10s} {:<9s} {:>10s}"
         fmt = (
             "{:<8} "  # JobID
             "{:<10} "  # User
@@ -528,20 +528,22 @@ class Reporter(object):
             "{:<8} "  # Part
             "{:>6} "  # NCPUS
             "{:>6} "  # NGPUS
-            "{:<19} "  # Start
+            # "{:<19} "  # Start
             "{:<19} "  # End
             "{:>10} "  # Elapsed
-            "{:>10} "  # CPUTime
+            # "{:>10} "  # CPUTime
             "{:>10} "  # TotalCPU
             "{:>11} "  # Elapsed(s)
             "{:>11} "  # CPUTime(s)
             "{:>12} "  # TotalCPU(s)
             "{:<10} "  # BillMode
+            "{:<11} "  # Type
             "{:>12}"  # Bill(raw)
         )
         print(fmt.format(*header))
 
-        widths = [8, 10, 12, 8, 6, 6, 19, 19, 10, 10, 10, 11, 11, 12, 10, 12]
+        # widths = [8, 10, 12, 8, 6, 6, 19, 19, 10, 10, 10, 11, 11, 12, 10, 12]
+        widths = [8, 10, 12, 8, 6, 6, 19, 10, 10, 11, 11, 12, 10, 11, 12]
         sep = 1  # 各列の後ろスペース
         total_width = sum(widths) + sep * (len(widths) - 1)
 
@@ -556,15 +558,16 @@ class Reporter(object):
                 (r.get("Partition", "") or "")[:8],  # Part
                 str(r.get("NCPUS", "")),  # NCPUS
                 str(r.get("NGPUs", "")),  # NGPUS
-                r.get("Start", ""),  # Start
+                # r.get("Start", ""),  # Start
                 r.get("End", ""),  # End
                 r.get("Elapsed", ""),  # Elapsed
-                r.get("CPUTime", ""),  # CPUTime
+                # r.get("CPUTime", ""),  # CPUTime
                 r.get("TotalCPU", ""),  # TotalCPU
                 "{:.1f}".format(r.get("Elapsed_s", 0.0)),  # Elapsed(s)
                 "{:.1f}".format(r.get("CPUTime_s", 0.0)),  # CPUTime(s)
                 "{:.3f}".format(r.get("TotalCPU_s", 0.0)),  # TotalCPU(s)
                 r.get("BillMode", ""),  # BillMode
+                r.get("chosen_class", ""), # Type
                 "{:.3f}".format(r.get("BillSeconds_raw", 0.0)),  # Bill(raw)
             ]
             print(fmt.format(*row))
@@ -592,17 +595,17 @@ class App(object):
         self.rows = client.fetch_rows()
         self.dataset = DatasetCpuBuilder(logger=self.logger).build(self.rows)
         self.bull_datasets = engine.process(self.dataset)
-        Reporter.print_table(self.bull_datasets)
 
     def debug_print(self):
         print('')
         self.logger.info(json.dumps(self.bull_datasets, indent=2, ensure_ascii=False))
+        Reporter.print_table(self.bull_datasets)
 
 
 if __name__ == "__main__":
     app = App()
     app.run()
-    # app.debug_print()
+    app.debug_print()
 
     gc.collect()
 
