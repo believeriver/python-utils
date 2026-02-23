@@ -26,6 +26,7 @@ import subprocess
 import sys
 import json
 from datetime import datetime, timedelta
+import gc
 
 
 # -----------------------------
@@ -284,8 +285,8 @@ class KeywordClassifier(object):
 
 class CpuStepSummer(object):
     """単純責務：stepのCPUを合算する（ここを差し替えるのも簡単）"""
-
-    def sum_steps(self, step_rows):
+    @staticmethod
+    def sum_steps(step_rows):
         total = 0.0
         user = 0.0
         sysc = 0.0
@@ -384,6 +385,7 @@ class TimeCalculator(ICalculatorBase):
         return "parent", cpu_sums
 
     def compute_raw(self, jobid, parent_row, cpu_sums):
+        # Classification by SubmitLine and AllocTRES
         submit = (parent_row.get("SubmitLine") or "").strip()
         interactive = bool(self.ctx["interactive_classifier"].matches(submit))
 
@@ -498,6 +500,7 @@ class App(object):
     def __init__(self):
         self.rows = None
         self.dataset = None
+        self.bull_datasets = None
         self.logger = setup_logger(Config.log_level)
 
     def run(self):
@@ -514,19 +517,18 @@ class App(object):
 
         self.rows = client.fetch_rows()
         self.dataset = DatasetCpuBuilder(logger=self.logger).build(self.rows)
-        self.dataset = engine.process(self.dataset)
+        self.bull_datasets = engine.process(self.dataset)
 
     def debug_print(self):
-        # for r in self.rows:
-        #     self.logger.info("ROW: %s", r)
-
         print('')
-        self.logger.info(json.dumps(self.dataset, indent=2, ensure_ascii=False))
+        self.logger.info(json.dumps(self.bull_datasets, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
     app = App()
     app.run()
     app.debug_print()
+
+    gc.collect()
 
 
