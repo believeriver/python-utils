@@ -496,6 +496,44 @@ class BillingEngine(object):
         return final
 
 
+# -----------------------------
+# Reporter (minimal)
+# -----------------------------
+class Reporter(object):
+    @staticmethod
+    def print_table(final_map):
+        header = [
+            "JobID",
+            "User",
+            "JobName",
+            "Part",
+            "NCPUS",
+            "Elapsed(s)",
+            "CPUTime(s)",
+            "TotalCPU(s)",
+            "BillMode",
+            "Bill(raw)",
+        ]
+        fmt = "{:<6s} {:<8s} {:<10s} {:<6s} {:>5s} {:>10s} {:>10s} {:>10s} {:<9s} {:>10s}"
+        print(fmt.format(*header))
+
+        for jid in sorted(final_map.keys(), key=lambda x: int(x)):
+            r = final_map[jid]
+            row = [
+                str(r.get("JobID", jid)),
+                (r.get("User", "") or "")[:8],
+                (r.get("JobName", "") or "")[:10],
+                (r.get("Partition", "") or "")[:6],
+                str(r.get("NCPUS", "")),
+                "{:.1f}".format(r.get("Elapsed_s", 0.0)),
+                "{:.1f}".format(r.get("CPUTime_s", 0.0)),
+                "{:.3f}".format(r.get("TotalCPU_s", 0.0)),
+                r.get("BillMode", ""),
+                "{:.3f}".format(r.get("BillSeconds_raw", 0.0)),
+            ]
+            print(fmt.format(*row))
+
+
 class App(object):
     def __init__(self):
         self.rows = None
@@ -518,6 +556,7 @@ class App(object):
         self.rows = client.fetch_rows()
         self.dataset = DatasetCpuBuilder(logger=self.logger).build(self.rows)
         self.bull_datasets = engine.process(self.dataset)
+        Reporter.print_table(self.bull_datasets)
 
     def debug_print(self):
         print('')
@@ -527,7 +566,7 @@ class App(object):
 if __name__ == "__main__":
     app = App()
     app.run()
-    app.debug_print()
+    # app.debug_print()
 
     gc.collect()
 
