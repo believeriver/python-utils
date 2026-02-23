@@ -53,10 +53,10 @@ class Config(object):
         "default": "totalcpu",
     }
 
-    # Rounding
-    ROUND_UNIT_SECONDS = 60
-    ROUND_MODE = "ceil"
-    MIN_BILLABLE_SECONDS = 0
+    #
+    GPU_SM_TABLE = {
+        "part1": 132,
+    }
 
     SACCT_PATH = "/usr/bin/sacct"
     log_level = logging.DEBUG
@@ -509,7 +509,44 @@ class BillingEngine(object):
 # -----------------------------
 # Reporter (minimal)
 # -----------------------------
-class Reporter(object):
+class IReporterBase(ABC):
+    def __init__(self, logger):
+        self.log = logger
+
+    @staticmethod
+    @abstractmethod
+    def print_table(final_map):
+        pass
+
+
+class BillReporter(IReporterBase):
+    @staticmethod
+    def print_table(final_map):
+        for jid in sorted(final_map.keys(), key=lambda x: int(x)):
+            r = final_map[jid]
+            nums = int(r.get("NGPUs", ""))
+            print(r.get("Partition", ""))
+            print('NGPUs', nums)
+            if nums == 0:
+                nums = r.get("NCPUS") or 0  # NCPUS
+                nums = int(nums)
+                print('NCPUS', nums)
+            else:
+                nums *= int(Config.GPU_SM_TABLE[r.get("Partition", "")])
+                print(nums)# Partに応じたGPUあたりのNCPUS換算
+
+            row = [
+                (r.get("User", "") or ""),  # User
+                (r.get("Partition", "") or "")[:8],  # Part
+                r.get("Start", ""),  # Start
+                r.get("End", ""),  # End
+                str(nums),  # NCPUS or GPU換算NCPUS
+                r.get("BillSeconds_raw", 0.0),  # Bill(raw)
+            ]
+            print(",".join(str(x) for x in row))
+
+
+class DebugReporter(IReporterBase):
     @staticmethod
     def print_table(final_map):
         header = [
@@ -532,12 +569,12 @@ class Reporter(object):
             "Bill(raw)",
         ]
         fmt = (
-            "{:<8} "  # JobID
-            "{:<10} "  # User
-            "{:<12} "  # JobName
+            "{:<6} "  # JobID
+            "{:<7} "  # User
+            "{:<6} "  # JobName
             "{:<8} "  # Part
-            "{:>6} "  # NCPUS
-            "{:>6} "  # NGPUS
+            "{:>5} "  # NCPUS
+            "{:>5} "  # NGPUS
             # "{:<19} "  # Start
             "{:<19} "  # End
             "{:>10} "  # Elapsed
@@ -553,7 +590,7 @@ class Reporter(object):
         print(fmt.format(*header))
 
         # widths = [8, 10, 12, 8, 6, 6, 19, 19, 10, 10, 10, 11, 11, 12, 10, 12]
-        widths = [8, 10, 12, 8, 6, 6, 19, 10, 10, 11, 11, 12, 10, 11, 12]
+        widths = [6, 7, 6, 8, 5, 5, 19, 10, 10, 11, 11, 12, 10, 11, 12]
         sep = 1  # 各列の後ろスペース
         total_width = sum(widths) + sep * (len(widths) - 1)
 
@@ -609,7 +646,8 @@ class App(object):
     def debug_print(self):
         print('')
         self.logger.info(json.dumps(self.bull_datasets, indent=2, ensure_ascii=False))
-        Reporter.print_table(self.bull_datasets)
+        DebugReporter.print_table(self.bull_datasets)
+        BillReporter.print_table(self.bull_datasets)
 
 
 if __name__ == "__main__":
