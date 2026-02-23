@@ -708,8 +708,32 @@ class App(object):
         engine = BillingEngine(logger=self.logger, calculator=calculator)
 
         self.rows = client.fetch_rows(endtime=target_day)
-        self.rows_end = [r for r in self.rows if SacctParserEnd.end_in_range(r, day_start, day_end, log=self.logger)]
-        self.dataset = DatasetCpuBuilder(logger=self.logger).build(self.rows_end)
+        # self.rows_end = [r for r in self.rows if SacctParserEnd.end_in_range(r, day_start, day_end, log=self.logger)]
+        # print(json.dumps(self.rows_end, indent=2, ensure_ascii=False))
+        # self.dataset = DatasetCpuBuilder(logger=self.logger).build(self.rows_end)
+
+        # まず全件で dataset を作る（親とstepを確保）
+        ds_all = DatasetCpuBuilder(logger=self.logger).build(self.rows)
+
+        # 親だけ End でフィルタして課金対象の JobID を決める
+        target_ids = []
+        for jid, parent_row in ds_all["parents"].items():
+            if SacctParserEnd.end_in_range(parent_row, day_start, day_end, log=self.logger):
+                target_ids.append(jid)
+
+        # 対象 JobID の親＋stepだけ残した dataset を作る
+        ds = {"parents": {}, "steps": {}}
+        for jid in target_ids:
+            if jid in ds_all["parents"]:
+                ds["parents"][jid] = ds_all["parents"][jid]
+            # stepは End を見ずに丸ごと同梱（無ければ空配列）
+            ds["steps"][jid] = ds_all["steps"].get(jid, [])
+
+        self.dataset = ds
+
+        # デバッグ表示（対象ジョブだけ）
+        print(json.dumps(self.dataset, indent=2, ensure_ascii=False))
+
         self.bull_datasets = engine.process(self.dataset)
 
     def debug_print(self):
