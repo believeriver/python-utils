@@ -508,64 +508,28 @@ class Reporter(object):
             "JobName",
             "Part",
             "NCPUS",
-            "NGPUS",
-            "Start",
-            "End",
-            "Elapsed",
-            "CPUTime",
-            "TotalCPU",
             "Elapsed(s)",
             "CPUTime(s)",
             "TotalCPU(s)",
             "BillMode",
             "Bill(raw)",
         ]
-        # fmt = "{:<6s} {:<8s} {:<10s} {:<6s} {:>5s} {:>10s} {:>10s} {:>10s} {:<9s} {:>10s}"
-        fmt = (
-            "{:<8} "  # JobID
-            "{:<10} "  # User
-            "{:<12} "  # JobName
-            "{:<8} "  # Part
-            "{:>6} "  # NCPUS
-            "{:>6} "  # NGPUS
-            "{:<19} "  # Start
-            "{:<19} "  # End
-            "{:>10} "  # Elapsed
-            "{:>10} "  # CPUTime
-            "{:>10} "  # TotalCPU
-            "{:>11} "  # Elapsed(s)
-            "{:>11} "  # CPUTime(s)
-            "{:>12} "  # TotalCPU(s)
-            "{:<10} "  # BillMode
-            "{:>12}"  # Bill(raw)
-        )
+        fmt = "{:<6s} {:<8s} {:<10s} {:<6s} {:>5s} {:>10s} {:>10s} {:>10s} {:<9s} {:>10s}"
         print(fmt.format(*header))
-
-        widths = [8, 10, 12, 8, 6, 6, 19, 19, 10, 10, 10, 11, 11, 12, 10, 12]
-        sep = 1  # 各列の後ろスペース
-        total_width = sum(widths) + sep * (len(widths) - 1)
-
-        print("-" * total_width)
 
         for jid in sorted(final_map.keys(), key=lambda x: int(x)):
             r = final_map[jid]
             row = [
-                str(r.get("JobID", jid)),  # JobID
-                (r.get("User", "") or "")[:10],  # User
-                (r.get("JobName", "") or "")[:12],  # JobName
-                (r.get("Partition", "") or "")[:8],  # Part
-                str(r.get("NCPUS", "")),  # NCPUS
-                str(r.get("NGPUs", "")),  # NGPUS
-                r.get("Start", ""),  # Start
-                r.get("End", ""),  # End
-                r.get("Elapsed", ""),  # Elapsed
-                r.get("CPUTime", ""),  # CPUTime
-                r.get("TotalCPU", ""),  # TotalCPU
-                "{:.1f}".format(r.get("Elapsed_s", 0.0)),  # Elapsed(s)
-                "{:.1f}".format(r.get("CPUTime_s", 0.0)),  # CPUTime(s)
-                "{:.3f}".format(r.get("TotalCPU_s", 0.0)),  # TotalCPU(s)
-                r.get("BillMode", ""),  # BillMode
-                "{:.3f}".format(r.get("BillSeconds_raw", 0.0)),  # Bill(raw)
+                str(r.get("JobID", jid)),
+                (r.get("User", "") or "")[:8],
+                (r.get("JobName", "") or "")[:10],
+                (r.get("Partition", "") or "")[:6],
+                str(r.get("NCPUS", "")),
+                "{:.1f}".format(r.get("Elapsed_s", 0.0)),
+                "{:.1f}".format(r.get("CPUTime_s", 0.0)),
+                "{:.3f}".format(r.get("TotalCPU_s", 0.0)),
+                r.get("BillMode", ""),
+                "{:.3f}".format(r.get("BillSeconds_raw", 0.0)),
             ]
             print(fmt.format(*row))
 
