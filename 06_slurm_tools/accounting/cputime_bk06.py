@@ -219,7 +219,7 @@ class IDatasetBuilderBase(ABC):
         pass
 
 
-class SacctSchema(ISchema):
+class SacctCpuSchema(ISchema):
     def __init__(self, fields=None):
         self.FIELDS = fields or [
             "JobID",
@@ -310,7 +310,7 @@ class SacctParserEnd(object):
         return day_start <= end_dt <= day_end
 
 
-class DatasetBuilder(IDatasetBuilderBase):
+class DatasetCpuBuilder(IDatasetBuilderBase):
     STEP_RE = re.compile(r"^(\d+)\.(.+)$")
     JOB_RE = re.compile(r"^\d+$")
 
@@ -742,7 +742,7 @@ class App(object):
         day_start = datetime.strptime(self.target_day, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0)
         day_end = datetime.strptime(self.target_day, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=0)
 
-        cpu_schema = SacctSchema()
+        cpu_schema = SacctCpuSchema()
         client = SacctClient(
             sacct_path=Config.SACCT_PATH,
             logger=self.logger,
@@ -755,7 +755,7 @@ class App(object):
 
         self.rows = client.fetch_rows(endtime=self.target_day)
         # まず全件で dataset を作る（親とstepを確保）
-        ds_all = DatasetBuilder(logger=self.logger).build(self.rows)
+        ds_all = DatasetCpuBuilder(logger=self.logger).build(self.rows)
 
         # 親だけ End でフィルタして課金対象の JobID を決める
         target_ids = []
