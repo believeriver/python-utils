@@ -34,7 +34,8 @@ import gc
 # -----------------------------
 class Config(object):
     # DEFAULT_STARTTIME = "2026-01-01"
-    DEFAULT_SPAN = 34
+    # DEFAULT_SPAN = 90
+    DEFAULT_SPAN = 0
     SSH_HOST = "192.168.64.2"
     SSH_USER = "root"
 
@@ -157,7 +158,13 @@ class ISacctClientBase(ABC):
         return: 'YYYY-MM-DDTHH:MM'
         """
         end_dt = self._parse_endtime(endtime)
-        start = end_dt - timedelta(days=self.days_ago)
+        # start = end_dt - timedelta(days=self.days_ago)
+        if self.days_ago == 0:
+            # 指定日の 00:00
+            start = end_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=0)
+        else:
+            start = end_dt - timedelta(days=self.days_ago)
 
         # sacct が素直に読める形式
         return start.strftime("%Y-%m-%dT%H:%M")
