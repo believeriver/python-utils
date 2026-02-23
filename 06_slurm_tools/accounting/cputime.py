@@ -355,6 +355,13 @@ class TimeCalculator(ICalculatorBase):
                     pass
         return gpu_count
 
+    @staticmethod
+    def uid_to_user(uid):
+        # 例: "1001(jdoe)" -> "jdoe"
+        if not uid:
+            return ""
+        return uid
+
     def calculate(self, jobid, parent_row, step_rows):
         cpu_source, cpu_sums = self.select_cpu_source(parent_row, step_rows)
         raw_seconds, metric, chosen_class, ngpus, reason = self.compute_raw(jobid, parent_row, cpu_sums)
@@ -463,7 +470,10 @@ class TimeCalculator(ICalculatorBase):
             "State",
             "SubmitLine"]
         for f in fields:
-            final[f] = parent_row.get(f, "")
+            if f == "User":
+                final[f] = self.uid_to_user(parent_row.get(f, ""))
+            else:
+                final[f] = parent_row.get(f, "")
         final.update(cpu_sums)
         final.update({
             "Elapsed_s": self.tools.to_seconds(parent_row.get("Elapsed", "")),
