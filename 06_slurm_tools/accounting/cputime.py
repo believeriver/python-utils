@@ -684,17 +684,17 @@ class DebugReporter(IReporterBase):
 
 
 class App(object):
-    def __init__(self):
+    def __init__(self, target_day=None):
         self.rows = None
         self.rows_end = None
         self.dataset = None
         self.bull_datasets = None
         self.logger = setup_logger(Config.log_level)
+        self.target_day = target_day
 
     def run(self):
-        target_day = "2026-02-23"
-        day_start = datetime.strptime(target_day, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0)
-        day_end = datetime.strptime(target_day, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=0)
+        day_start = datetime.strptime(self.target_day, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = datetime.strptime(self.target_day, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=0)
 
         cpu_schema = SacctCpuSchema()
         client = SacctClient(
@@ -707,7 +707,7 @@ class App(object):
         calculator = TimeCalculator(logger=self.logger)
         engine = BillingEngine(logger=self.logger, calculator=calculator)
 
-        self.rows = client.fetch_rows(endtime=target_day)
+        self.rows = client.fetch_rows(endtime=self.target_day)
         # self.rows_end = [r for r in self.rows if SacctParserEnd.end_in_range(r, day_start, day_end, log=self.logger)]
         # print(json.dumps(self.rows_end, indent=2, ensure_ascii=False))
         # self.dataset = DatasetCpuBuilder(logger=self.logger).build(self.rows_end)
@@ -732,7 +732,7 @@ class App(object):
         self.dataset = ds
 
         # デバッグ表示（対象ジョブだけ）
-        print(json.dumps(self.dataset, indent=2, ensure_ascii=False))
+        self.logger.debug(json.dumps(self.dataset, indent=2, ensure_ascii=False))
 
         self.bull_datasets = engine.process(self.dataset)
 
@@ -746,12 +746,44 @@ class App(object):
         reporter = BillReporter(logger=self.logger)
         reporter.print_table(self.bull_datasets)
 
+# -----------------------------
+# CLI / main
+# -----------------------------
+def parse_args(argv):
+    # today = datetime.now().strftime("%Y-%m-%d")
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    target = yesterday
+    log_level = logging.WARNING
+    debug = False
+    i = 1
+    while i < len(argv):
+        a = argv[i]
+        if a == "--debug":
+            log_level = logging.DEBUG
+            debug = True
+            i += 1
+            continue
+        if a == "--info":
+            log_level = logging.INFO
+            i += 1
+            continue
+        target = a
+        i += 1
+    return target, log_level, debug
+
+
+def main(argv=None):
+    target, log_level, debug = parse_args(argv)
+    Config.log_level = log_level
+    app = App(target)
+    app.run()
+    if debug:
+        app.debug_print()
+    #results
+    app.print()
 
 if __name__ == "__main__":
-    app = App()
-    app.run()
-    app.debug_print()
-    app.print()
+    main(sys.argv)
 
     gc.collect()
 
