@@ -1,6 +1,6 @@
 """
 SLURM billing base (Python 3.6) - dict dataset version.
-Created by @nobuki on 2026-02-22.
+Created by @nobuyuki on 2026-02-23.
 Version 0.1.0 2026-02-22: Initial version.
 
 Key points:
