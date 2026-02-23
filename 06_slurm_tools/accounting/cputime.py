@@ -708,10 +708,6 @@ class App(object):
         engine = BillingEngine(logger=self.logger, calculator=calculator)
 
         self.rows = client.fetch_rows(endtime=self.target_day)
-        # self.rows_end = [r for r in self.rows if SacctParserEnd.end_in_range(r, day_start, day_end, log=self.logger)]
-        # print(json.dumps(self.rows_end, indent=2, ensure_ascii=False))
-        # self.dataset = DatasetCpuBuilder(logger=self.logger).build(self.rows_end)
-
         # まず全件で dataset を作る（親とstepを確保）
         ds_all = DatasetCpuBuilder(logger=self.logger).build(self.rows)
 
@@ -745,6 +741,7 @@ class App(object):
     def print(self):
         reporter = BillReporter(logger=self.logger)
         reporter.print_table(self.bull_datasets)
+
 
 # -----------------------------
 # CLI / main
