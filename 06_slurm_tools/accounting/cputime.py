@@ -483,7 +483,8 @@ class TimeCalculator(ICalculatorBase):
 
         raw_seconds = candidates[metric]
         if metric == "elapsed":
-            # Elapsedは実時間なので倍率が必要。
+            # Elapsedは実時間なのでCPU数もしくはGPU数で倍率が必要。
+            # raw_seconds(Billing_raw) = Elapsed * NCPUS or Elapsed * NGPUS
             # ポリシー：GPUが割り当てられているジョブは常にGPU数で積算（interactiveでも同じ）
             mult = elapsed_counter["ngpus"] if elapsed_counter["ngpus"] > 0 else elapsed_counter["ncpus"]
             raw_seconds *= max(1, mult)
@@ -685,13 +686,37 @@ class DebugReporter(IReporterBase):
 
 
 class App(object):
-    def __init__(self, target_day=None):
+    def __init__(self, target_day=None, gpu_only=False):
         self.rows = None
         self.rows_end = None
         self.dataset = None
         self.bull_datasets = None
         self.logger = setup_logger(Config.log_level)
         self.target_day = target_day
+        self.gpu_only = gpu_only
+
+    @staticmethod
+    def filter_dataset_by_cluster(ds, gpu_only=False):
+        """
+        ds: {"parents": {jid: row}, "steps": {jid: [step_rows]}}
+        gpu_only:
+          True  -> GPU partitions only
+          False -> CPU partitions only
+        """
+        out = {"parents": {}, "steps": {}}
+
+        for jid, parent_row in ds.get("parents", {}).items():
+            part = parent_row.get("Partition", "")
+            is_gpu = (part or "").strip() in Config.GPU_SM_TABLE
+
+            if gpu_only and not is_gpu:
+                continue
+            if (not gpu_only) and is_gpu:
+                continue
+
+            out["parents"][jid] = parent_row
+            out["steps"][jid] = ds.get("steps", {}).get(jid, [])
+        return out
 
     def run(self):
         day_start = datetime.strptime(self.target_day, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0)
@@ -727,15 +752,19 @@ class App(object):
             ds["steps"][jid] = ds_all["steps"].get(jid, [])
 
         self.dataset = ds
-
         # デバッグ表示（対象ジョブだけ）
         self.logger.debug(json.dumps(self.dataset, indent=2, ensure_ascii=False))
+        # クラスタ別フィルタ（例: self.gpu_only は --gpu で True）
+        ds2 = self.filter_dataset_by_cluster(self.dataset, gpu_only=self.gpu_only)
+        self.logger.debug(
+            "Cluster filter gpu_only=%s: parents=%d",
+            self.gpu_only, len(ds2["parents"])
+        )
+        self.bull_datasets = engine.process(ds2)
 
-        self.bull_datasets = engine.process(self.dataset)
-
-    def debug_print(self):
+    def info_print(self):
         print('')
-        self.logger.debug(json.dumps(self.bull_datasets, indent=2, ensure_ascii=False))
+        self.logger.info(json.dumps(self.bull_datasets, indent=2, ensure_ascii=False))
         reporter = DebugReporter(logger=self.logger)
         reporter.print_table(self.bull_datasets)
 
@@ -753,6 +782,9 @@ def parse_args(argv):
     target = yesterday
     log_level = logging.WARNING
     debug = False
+    info = False
+    gpu_only = False
+
     i = 1
     while i < len(argv):
         a = argv[i]
@@ -763,20 +795,28 @@ def parse_args(argv):
             continue
         if a == "--info":
             log_level = logging.INFO
+            info = True
+            i += 1
+            continue
+        if a == "--gpu":
+            gpu_only = True
             i += 1
             continue
         target = a
         i += 1
-    return target, log_level, debug
+    return target, log_level, gpu_only, debug, info
 
 
 def main(argv=None):
-    target, log_level, debug = parse_args(argv)
+    target, log_level, gpu_only, debug, info = parse_args(argv)
     Config.log_level = log_level
-    app = App(target)
+    print(gpu_only)
+    app = App(target_day=target, gpu_only=gpu_only)
     app.run()
-    if debug:
-        app.debug_print()
+    if info:
+        app.info_print()
+        print('')
+        print('--- Billing results (CSV) ---')
     #results
     app.print()
 
