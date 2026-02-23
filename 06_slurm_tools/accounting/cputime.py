@@ -70,7 +70,8 @@ class Config(object):
         "interactive": "elapsed",
         "interactive_gpu": "elapsed",
         "gpu": "elapsed",
-        "default": "totalcpu",
+        "default": "elapsed",
+        # "default": "totalcpu",
     }
 
     #
