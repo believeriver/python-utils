@@ -586,23 +586,6 @@ class IReporterBase(ABC):
 
 
 class BillReporter(IReporterBase):
-    def date_formatter(self, day):
-        # "2026-02-23T14:08:29" -> "2026/02/23 14:08:29"
-        """tuple/list/string どれでも「T」をスペースに変換"""
-        self.log.debug("date_formatter: day=%s", day)
-        if not day:
-            return ""
-
-        # tuple/list なら最初の要素を取り出す
-        if isinstance(day, (tuple, list)):
-            day = day[0]
-
-        # 文字列に変換してから置換
-        day = str(day).replace("T", " ")
-        day = str(day).replace("-", "/")
-        self.log.debug("date_formatter: day=%s", day)
-        return day
-
     def print_table(self, final_map):
         for jid in sorted(final_map.keys(), key=lambda x: int(x)):
             r = final_map[jid]
@@ -611,11 +594,6 @@ class BillReporter(IReporterBase):
             nums = int(r.get("NGPUs", ""))
             elapsed = r.get("Elapsed_s", 0.0)
             bill_seconds = r.get("BillSeconds_raw", 0.0)
-            start = r.get("Start", ""),  # Start
-            end = r.get("End", ""),  # End
-            starttime = self.date_formatter(start)
-            endtime = self.date_formatter(end)
-
             sm = int(Config.GPU_SM_TABLE[partition]) if partition in Config.GPU_SM_TABLE else 0
 
             self.log.debug({"Partition": partition})
@@ -638,18 +616,18 @@ class BillReporter(IReporterBase):
                 self.log.debug({'GPU bill seconds(Elapsed * NGPUs * SM)': bill_seconds})
 
             if bill_seconds > 0:
-                efc = 1.0
+                etc = 1.0
             else:
-                efc = 0.0
+                etc = 0.0
 
             row = [
                 partition,  # Part
                 (r.get("User", "") or ""),  # User
-                starttime,  # Start
-                endtime,  # End
+                r.get("Start", ""),  # Start
+                r.get("End", ""),  # End
                 str(nums),  # NCPUS or GPU換算NCPUS
                 bill_seconds,  # Bill(raw)
-                efc,
+                etc,
             ]
             print(",".join(str(x) for x in row))
 
