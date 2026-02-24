@@ -850,7 +850,16 @@ def parse_args(argv):
             gpu_only = True
             i += 1
             continue
-        target = a
+
+        # 日付変換をここに追加
+        try:
+            # 20260223 → 2026-02-23
+            if len(a) == 8 and a.isdigit():
+                target = datetime.strptime(a, "%Y%m%d").strftime("%Y-%m-%d")
+            else:
+                target = a  # そのまま（YYYY-MM-DD形式なら）
+        except ValueError:
+            target = a  # 変換失敗時はそのまま
         i += 1
     return target, log_level, gpu_only, debug, info
 
