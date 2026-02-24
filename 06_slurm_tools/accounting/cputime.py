@@ -223,6 +223,7 @@ class SacctSchema(ISchema):
     def __init__(self, fields=None):
         self.FIELDS = fields or [
             "JobID",
+            "Group",
             "Elapsed",
             "CPUTime",
             "TotalCPU",
@@ -524,6 +525,7 @@ class TimeCalculator(ICalculatorBase):
         fields = [
             "JobID",
             "User",
+            "Group",
             "JobName",
             "Partition",
             "NCPUS",
@@ -645,6 +647,7 @@ class BillReporter(IReporterBase):
             row = [
                 partition,  # Part
                 (r.get("User", "") or ""),  # User
+                (r.get("Group", "") or ""),  # User
                 starttime,  # Start
                 endtime,  # End
                 str(nums),  # NCPUS or GPU換算NCPUS
@@ -659,6 +662,7 @@ class DebugReporter(IReporterBase):
         header = [
             "JobID",
             "User",
+            "Group",
             "JobName",
             "Part",
             "NCPUS",
@@ -678,6 +682,7 @@ class DebugReporter(IReporterBase):
         fmt = (
             "{:<6} "  # JobID
             "{:<7} "  # User
+            "{:<7} "  # Group
             "{:<6} "  # JobName
             "{:<8} "  # Part
             "{:>5} "  # NCPUS
@@ -697,7 +702,7 @@ class DebugReporter(IReporterBase):
         print(fmt.format(*header))
 
         # widths = [8, 10, 12, 8, 6, 6, 19, 19, 10, 10, 10, 11, 11, 12, 10, 12]
-        widths = [6, 7, 6, 8, 5, 5, 19, 10, 10, 11, 11, 12, 10, 11, 12]
+        widths = [6, 7, 7, 6, 8, 5, 5, 19, 10, 10, 11, 11, 12, 10, 11, 12]
         sep = 1  # 各列の後ろスペース
         total_width = sum(widths) + sep * (len(widths) - 1)
 
@@ -708,6 +713,7 @@ class DebugReporter(IReporterBase):
             row = [
                 str(r.get("JobID", jid)),  # JobID
                 (r.get("User", "") or "")[:10],  # User
+                (r.get("Group", "") or "")[:10],  # User
                 (r.get("JobName", "") or "")[:12],  # JobName
                 (r.get("Partition", "") or "")[:8],  # Part
                 str(r.get("NCPUS", "")),  # NCPUS
