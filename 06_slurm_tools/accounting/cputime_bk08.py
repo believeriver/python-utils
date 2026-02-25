@@ -2,7 +2,6 @@
 SLURM billing base (Python 3.6) - dict dataset version.
 Created by @nobuyuki on 2026-02-23.
 Version 0.1.0 2026-02-22: Initial version.
-Version 0.1.1 2026-02-25: Add date formatter in BillingReporter, and parse_arg checks the date format.
 
 Key points:
 
@@ -590,7 +589,6 @@ class IReporterBase(ABC):
 
 class BillReporter(IReporterBase):
     def date_formatter(self, day):
-        # 2026.02.25 add function
         # "2026-02-23T14:08:29" -> "2026/02/23 14:08:29"
         """tuple/list/string どれでも「T」をスペースに変換"""
         self.log.debug("date_formatter: day=%s", day)
@@ -615,7 +613,6 @@ class BillReporter(IReporterBase):
             nums = int(r.get("NGPUs", ""))
             elapsed = r.get("Elapsed_s", 0.0)
             bill_seconds = r.get("BillSeconds_raw", 0.0)
-            # 2026.02.25 add formatting
             start = r.get("Start", ""),  # Start
             end = r.get("End", ""),  # End
             starttime = self.date_formatter(start)
@@ -854,27 +851,21 @@ def parse_args(argv):
             i += 1
             continue
 
-        # 日付変換（20260223形式のみ許可）
-        if len(a) == 8 and a.isdigit():
-            try:
+        # 日付変換をここに追加
+        try:
+            # 20260223 → 2026-02-23
+            if len(a) == 8 and a.isdigit():
                 target = datetime.strptime(a, "%Y%m%d").strftime("%Y-%m-%d")
-            except ValueError:
-                print(f"[ERROR]: Invalid date '{a}'. Please specify a valid YYYYMMDD date (e.g., 20260223)")
-                return False, log_level, gpu_only, debug, info
-        else:
-            print(f"[ERROR]: invalid date format '{a}'")
-            print(f"[INFO] : Usage:YYYYMMDD (ex: 20260223) or --debug or --info or --gpu")
-            return False, log_level, gpu_only, debug, info
-
+            else:
+                target = a  # そのまま（YYYY-MM-DD形式なら）
+        except ValueError:
+            target = a  # 変換失敗時はそのまま
         i += 1
     return target, log_level, gpu_only, debug, info
 
 
 def main(argv=None):
     target, log_level, gpu_only, debug, info = parse_args(argv)
-    if target is False:
-        print("[ERROR]: Failed to parse arguments")
-        return
     Config.log_level = log_level
     app = App(target_day=target, gpu_only=gpu_only)
     app.run()
