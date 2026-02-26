@@ -25,6 +25,8 @@ def selection_sort(numbers: List[int]) -> List[int]:
 
 if __name__ == "__main__":
     arr = [2, 5, 1, 8, 7, 3]
-    print(f'Before sorting: {arr}')
-    print(f'bubble:         {bubble_sort(arr)}')
-    print(f'selection:      {selection_sort(arr)}')
+    import random
+    numbers = [random.randint(1, 100) for _ in range(10)]
+    print(f'Before sorting: {numbers}')
+    print(f'bubble:         {bubble_sort(numbers)}')
+    print(f'selection:      {selection_sort(numbers)}')
