@@ -150,7 +150,7 @@ class ExecutorInterface(ABC):
                 text = str(text).lstrip("'")
                 f.write(text + "\n")
                 self.logger.debug(text)
-        self.logger.info('--- end to write logs ---')
+        self.logger.debug('--- end to write logs ---')
 
     def run(self) -> None:
         self.results = self.ssh_client.execute_command().split("\n")
@@ -174,6 +174,36 @@ class FetchFileListExecutor(ExecutorInterface):
     def build_version() -> str:
         return "fetch_file_list"
 
+
+#-----------------
+# Utils
+#-----------------
+class SwitchListDataset(object):
+    """
+    fetch ip address and hostname list from config life.
+    """
+    def __init__(self, config_file :str):
+        self.config_file = config_file
+        self.hostname_list = []
+        self.ipaddr_list = []
+        self.import_config()
+
+    def import_config(self):
+        with open(self.config_file, mode="r") as f:
+            items = f.readlines()
+
+        for item in items:
+            hostname, ipaddr = item.strip(",")
+            self.hostname_list.append(hostname)
+            self.ipaddr_list.append(ipaddr)
+
+    def __str__(self):
+        for cnt in range(len(self.hostname_list)):
+            print(cnt)
+            print(f'hostname : {self.hostname_list[cnt]}')
+            print(f'ipaddr   : {self.ipaddr_list[cnt]}')
+
+        return 'end of SwitchConfigList'
 
 def main():
 
