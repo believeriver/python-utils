@@ -63,7 +63,7 @@ class ParamikoSSHClient(SSHClientInterface):
 
     def execute_command(self) -> str:
         execute_result = None
-        self.logger.debug(f"--- execute command: {self.commands}")
+        self.logger.debug(f"--- execute command: {self.commands} ---")
         try:
             with (paramiko.SSHClient() as client):
                 client.set_missing_host_key_policy(paramiko.AutoAddPolicy)
@@ -76,8 +76,6 @@ class ParamikoSSHClient(SSHClientInterface):
                 )
                 remote_shell = client.invoke_shell()
                 time.sleep(2)
-
-
                 execute_result = remote_shell.recv(655535).decode("utf-8", errors="replace")
                 if self.commands != [] and self.commands is not None:
                     for command in self.commands:
@@ -145,7 +143,7 @@ class ExecutorInterface(ABC):
         if self.results is None:
             self.run()
 
-        self.logger.info(f'--- write to {self.out_filename}')
+        self.logger.info(f'--- write to {self.out_filename} ---')
         with open(self.out_filename, mode="w") as f:
             for text in self.results:
                 text = str(text).lstrip("b'")
@@ -156,11 +154,11 @@ class ExecutorInterface(ABC):
 
     def run(self) -> None:
         self.results = self.ssh_client.execute_command().split("\n")
-        print(self.results)
-        self.logger.info(self.results)
+        # for text in self.results:
+        #     self.logger.info(text)
 
 
-class FetchFileList(ExecutorInterface):
+class FetchFileListExecutor(ExecutorInterface):
     @staticmethod
     def build_command() -> List[str]:
         return [
@@ -170,22 +168,19 @@ class FetchFileList(ExecutorInterface):
 
     @staticmethod
     def build_filename() -> str:
-        return "filename"
+        return "file_list"
 
     @staticmethod
     def build_version() -> str:
-        return "FetchFileList"
+        return "fetch_file_list"
 
 
 def main():
 
     ip = "192.168.64.2"
-    objects = FetchFileList(
+    executor = FetchFileListExecutor(
         ip=ip, username=Config.USERNAME, password=Config.PASSWORD, port=Config.PORT, level=Config.LEVEL)
-    print(
-        objects.out_filename, objects.version)
-    # objects.run()
-    objects.write_log()
+    executor.write_log()
 
 
 if __name__ == '__main__':
