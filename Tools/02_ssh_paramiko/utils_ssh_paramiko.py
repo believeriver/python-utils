@@ -1,11 +1,24 @@
 from abc import ABC, abstractmethod
 import paramiko
 import subprocess
+import datetime
 import time
 import os
 import logging
 import json
+from typing import List, Sequence
 import gc
+
+
+#-----------------------
+#Config
+#-----------------------
+
+class Config(object):
+    USERNAME = "root"
+    PASSWORD = "rootroot"
+    PORT = 22
+    LEVEL = logging.DEBUG
 
 
 #-----------------------
@@ -27,62 +40,149 @@ def setup_logger(name, level=logging.INFO):
 #-----------------------
 class SSHClientInterface(ABC):
     @abstractmethod
-    def connect(self):
-        pass
-
-    @abstractmethod
-    def execute_command(self, command: str) -> str:
-        pass
-
-    @abstractmethod
-    def close(self):
+    def execute_command(self) -> str:
         pass
 
 #-----------------------
 # Paramiko SSH Client Implementation
 #-----------------------
 class ParamikoSSHClient(SSHClientInterface):
-    def __init__(self, hostname: str, username: str, password: str, port: int = 22):
-        self.hostname = hostname
+    def __init__(self,
+                 ip: str,
+                 username: str,
+                 password: str,
+                 port: int = 22,
+                 commands:  List[str] = None,
+                 level=logging.INFO):
+        self.ip = ip
         self.username = username
         self.password = password
         self.port = port
-        self.client = None
-        self.logger = setup_logger("ParamikoSSHClient")
+        self.commands = commands
+        self.logger = setup_logger("ParamikoSSHClient", level)
 
-    def connect(self):
+    def execute_command(self) -> str:
+        execute_result = None
+        self.logger.debug(f"--- execute command: {self.commands}")
         try:
-            self.client = paramiko.SSHClient()
-            self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            self.client.connect(
-                hostname=self.hostname,
-                port=self.port,
-                username=self.username,
-                password=self.password,
-                timeout=10
-            )
-            self.logger.info(f"Connected to {self.hostname}")
-        except Exception as e:
-            self.logger.error(f"Failed to connect to {self.hostname}: {e}")
-            raise
+            with (paramiko.SSHClient() as client):
+                client.set_missing_host_key_policy(paramiko.AutoAddPolicy)
+                client.connect(
+                    self.ip,
+                    username=self.username,
+                    password=self.password,
+                    port=self.port,
+                    timeout=30,
+                )
+                remote_shell = client.invoke_shell()
+                time.sleep(2)
+                execute_result = remote_shell.recv(655535)
+                if self.commands != [] and self.commands is not None:
+                    for command in self.commands:
+                        remote_shell.send(command)
+                    time.sleep(3)
+                execute_result = remote_shell.recv(655535)
+        except paramiko.SSHException as e:
+            execute_result = f"[ERROR] {self.ip} : {str(e)}"
+        return execute_result
 
-    def execute_command(self, command: str) -> str:
-        if not self.client:
-            raise Exception("SSH client is not connected.")
 
-        try:
-            stdin, stdout, stderr = self.client.exec_command(command)
-            output = stdout.read().decode()
-            error = stderr.read().decode()
-            if error:
-                self.logger.error(f"Error executing command '{command}': {error}")
-                return error
-            return output
-        except Exception as e:
-            self.logger.error(f"Failed to execute command '{command}': {e}")
-            raise
+#---------------
+# Executor
+#---------------
+class ExecutorInterface(ABC):
+    def __init__(self,
+                 ip: str,
+                 username: str,
+                 password: str,
+                 port: int = 22,
+                 level = logging.INFO,
+                 ):
+        self.commands = self.build_command()
+        self.filename = self.build_filename()
+        self.version = self.build_version()
+        self.out_filename = self.set_out_filename(self.filename)
+        self.logger = setup_logger(self.version, level=level)
+        self.results = None
+        self.ssh_client = ParamikoSSHClient(
+            ip = ip,
+            username = username,
+            password = password,
+            port = port,
+            commands=self.commands,
+            level=level,
+        )
 
-    def close(self):
-        if self.client:
-            self.client.close()
-            self.logger.info(f"Connection to {self.hostname} closed.")
+    @staticmethod
+    @abstractmethod
+    def build_command() -> List[str]:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def build_filename() -> str:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def build_version() -> str:
+        pass
+
+    @staticmethod
+    def set_out_filename(filename: str) -> str:
+        now_date = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        return filename + "_" + now_date
+
+    def write_log(self):
+        """
+        output command results
+        :return:
+        """
+        if self.results is None:
+            self.run()
+
+        self.logger.info(f'--- write to {self.out_filename}')
+        with open(self.out_filename, mode="w") as f:
+            for text in self.results:
+                text = str(text).lstrip("b'")
+                text = str(text).lstrip("'")
+                f.write(text + "\n")
+                self.logger.debug(text)
+        self.logger.info('--- end to write logs ---')
+
+    def run(self) -> None:
+        self.results = self.ssh_client.execute_command()
+        print(self.results)
+        self.logger.info(self.results)
+
+
+class FetchFileList(ExecutorInterface):
+    @staticmethod
+    def build_command() -> List[str]:
+        return [
+            "ls",
+            "-l\n"
+        ]
+
+    @staticmethod
+    def build_filename() -> str:
+        return "filelist"
+
+    @staticmethod
+    def build_version() -> str:
+        return "FetchFileList"
+
+
+def main():
+
+    ip = "192.168.64.2"
+    objects = FetchFileList(
+        ip=ip, username=Config.USERNAME, password=Config.PASSWORD, port=Config.PORT, level=Config.LEVEL)
+    print(
+        objects.out_filename, objects.version)
+    objects.run()
+
+
+if __name__ == '__main__':
+    main()
+
