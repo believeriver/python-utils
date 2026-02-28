@@ -1,0 +1,29 @@
+ls -l
+df
+合計 16
+-rw-------.  1 root root 1428 12月 28 20:17 anaconda-ks.cfg
+-rw-r--r--.  1 root root  816  2月 21 08:28 info
+-rw-r--r--.  1 root root 1720 12月 28 20:41 initial-setup-ks.cfg
+drwxr-xr-x. 13 root root 4096 12月 30 20:30 [0m[01;34mkubernetes-kanzen-nyumon-material[0m
+drwxr-xr-x.  8 root root   89  1月  4 15:55 [01;34mrpmbuild[0m
+drwxr-xr-x.  2 root root    6 12月 28 20:42 [01;34mダウンロード[0m
+drwxr-xr-x.  2 root root    6 12月 28 20:42 [01;34mテンプレート[0m
+drwxr-xr-x.  2 root root    6 12月 28 20:42 [01;34mデスクトップ[0m
+drwxr-xr-x.  2 root root    6 12月 28 20:42 [01;34mドキュメント[0m
+drwxr-xr-x.  2 root root    6 12月 28 20:42 [01;34mビデオ[0m
+drwxr-xr-x.  2 root root    6 12月 28 20:42 [01;34m音楽[0m
+drwxr-xr-x.  2 root root    6 12月 28 20:42 [01;34m画像[0m
+drwxr-xr-x.  2 root root    6 12月 28 20:42 [01;34m公開[0m
+[root@rx8manage ~]# df
+ファイルシス        1K-ブロック    使用   使用可 使用% マウント位置
+devtmpfs                 745472       0   745472    0% /dev
+tmpfs                    773632       0   773632    0% /dev/shm
+tmpfs                    773632   97664   675968   13% /run
+tmpfs                    773632       0   773632    0% /sys/fs/cgroup
+/dev/mapper/rl-root    42495720 8159280 34336440   20% /
+/dev/mapper/rl-home    20744192  209800 20534392    2% /home
+/dev/vda2               1038336  248132   790204   24% /boot
+/dev/vda1                613184    7180   606004    2% /boot/efi
+tmpfs                    154688     320   154368    1% /run/user/42
+tmpfs                    154688       0   154688    0% /run/user/0
+[root@rx8manage ~]# 

@@ -155,7 +155,7 @@ class ExecutorInterface(ABC):
         self.logger.info('--- end to write logs ---')
 
     def run(self) -> None:
-        self.results = self.ssh_client.execute_command()
+        self.results = self.ssh_client.execute_command().split("\n")
         print(self.results)
         self.logger.info(self.results)
 
@@ -170,7 +170,7 @@ class FetchFileList(ExecutorInterface):
 
     @staticmethod
     def build_filename() -> str:
-        return "filelist"
+        return "filename"
 
     @staticmethod
     def build_version() -> str:
@@ -184,7 +184,8 @@ def main():
         ip=ip, username=Config.USERNAME, password=Config.PASSWORD, port=Config.PORT, level=Config.LEVEL)
     print(
         objects.out_filename, objects.version)
-    objects.run()
+    # objects.run()
+    objects.write_log()
 
 
 if __name__ == '__main__':
