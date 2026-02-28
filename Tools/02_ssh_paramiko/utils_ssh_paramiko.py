@@ -76,12 +76,16 @@ class ParamikoSSHClient(SSHClientInterface):
                 )
                 remote_shell = client.invoke_shell()
                 time.sleep(2)
-                execute_result = remote_shell.recv(655535)
+
+
+                execute_result = remote_shell.recv(655535).decode("utf-8", errors="replace")
                 if self.commands != [] and self.commands is not None:
                     for command in self.commands:
+                        if not command.endswith("\n"):
+                            command = command + "\n"
                         remote_shell.send(command)
                     time.sleep(3)
-                execute_result = remote_shell.recv(655535)
+                execute_result = remote_shell.recv(655535).decode("utf-8", errors="replace")
         except paramiko.SSHException as e:
             execute_result = f"[ERROR] {self.ip} : {str(e)}"
         return execute_result
@@ -160,8 +164,8 @@ class FetchFileList(ExecutorInterface):
     @staticmethod
     def build_command() -> List[str]:
         return [
-            "ls",
-            "-l\n"
+            "ls -l",
+            "df"
         ]
 
     @staticmethod
