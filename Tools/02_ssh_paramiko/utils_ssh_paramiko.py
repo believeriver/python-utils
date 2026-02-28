@@ -98,12 +98,13 @@ class ExecutorInterface(ABC):
                  username: str,
                  password: str,
                  port: int = 22,
+                 out_dir: str = None,
                  level = logging.INFO,
                  ):
         self.commands = self.build_command()
         self.filename = self.build_filename()
         self.version = self.build_version()
-        self.out_filename = self.set_out_filename(self.filename)
+        self.out_filename = self.set_out_filename(self.filename, out_dir)
         self.logger = setup_logger(self.version, level=level)
         self.results = None
         self.ssh_client = ParamikoSSHClient(
@@ -131,9 +132,12 @@ class ExecutorInterface(ABC):
         pass
 
     @staticmethod
-    def set_out_filename(filename: str) -> str:
+    def set_out_filename(filename: str, out_dir) -> str:
         now_date = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        return filename + "_" + now_date
+        if out_dir is None:
+            return filename + "_" + now_date
+        else:
+            return out_dir + "/" + filename + "_" + now_date
 
     def write_log(self):
         """
@@ -172,7 +176,7 @@ class FetchFileListExecutor(ExecutorInterface):
 
     @staticmethod
     def build_version() -> str:
-        return "fetch_file_list"
+        return "fetch_file_list_executor"
 
 
 #-----------------
@@ -193,13 +197,13 @@ class SwitchListDataset(object):
             items = f.readlines()
 
         for item in items:
-            hostname, ipaddr = item.strip(",")
+            hostname, ipaddr = item.split(",")
             self.hostname_list.append(hostname)
             self.ipaddr_list.append(ipaddr)
 
     def __str__(self):
         for cnt in range(len(self.hostname_list)):
-            print(cnt)
+            print(f' --- {cnt} ---')
             print(f'hostname : {self.hostname_list[cnt]}')
             print(f'ipaddr   : {self.ipaddr_list[cnt]}')
 
@@ -207,9 +211,16 @@ class SwitchListDataset(object):
 
 def main():
 
+    cur_dir = os.getcwd()
+    config_file = os.path.join(cur_dir, "settings", "config.ini")
+    output_dir = os.path.join(cur_dir, "out")
+    print(config_file)
+    dataset = SwitchListDataset(config_file)
+    print(dataset)
     ip = "192.168.64.2"
     executor = FetchFileListExecutor(
-        ip=ip, username=Config.USERNAME, password=Config.PASSWORD, port=Config.PORT, level=Config.LEVEL)
+        ip=ip, username=Config.USERNAME, password=Config.PASSWORD,
+        port=Config.PORT, out_dir=output_dir,level=Config.LEVEL)
     executor.write_log()
 
 
