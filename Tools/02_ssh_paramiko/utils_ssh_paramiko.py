@@ -236,7 +236,7 @@ class FetchLogFactory(object):
 
     def fetch_summary(self, hostname: str, ipaddr: str, command_result: List[str]):
         """
-
+        The method for generating the summary can be freely customized by overriding it.
         :return:
         """
         result = dict()
@@ -276,7 +276,6 @@ class FetchLogFactory(object):
         #     print(",".join(str(x) for x in item))
 
 
-
 def main_test(executor_cls: Type[ExecutorInterface]):
     cur_dir = os.getcwd()
     config_file = os.path.join(cur_dir, "settings", "config.ini")
@@ -291,13 +290,14 @@ def main_test(executor_cls: Type[ExecutorInterface]):
     executor.write_log()
 
 
-def main_cls(executor_cls: Type[ExecutorInterface]):
+def main_cls(factory_cls: Type[FetchLogFactory], executor_cls: Type[ExecutorInterface]):
     dataset_cls = SwitchListDataset
-    executor_factory = FetchLogFactory(dataset_cls, executor_cls)
+    executor_factory = factory_cls(dataset_cls, executor_cls)
     executor_factory.run()
 
 if __name__ == '__main__':
-    ex = FetchFileListExecutor
+    executor = FetchFileListExecutor
+    factory = FetchLogFactory
     # main_test(ex)
-    main_cls(ex)
+    main_cls(factory, executor)
 
