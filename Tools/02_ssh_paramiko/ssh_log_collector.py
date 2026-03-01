@@ -52,6 +52,10 @@ class Config(object):
     USERNAME = "root"
     PASSWORD = "rootroot"
     PORT = 22
+
+    CONFIG_FILE = "config.ini"
+    SETTINGS_DIR = "settings"
+    OUTPUT_DIR = "out"
     # LEVEL = logging.DEBUG
     LEVEL = logging.INFO
 
@@ -318,16 +322,20 @@ class FetchLogFactory(object):
         self.create_file_path()
         self.summary = []
 
-    @property
-    def name(self) -> str:
-        return 'FetchLogFactory'
-
     def create_file_path(self):
         cur_dir = os.getcwd()
-        self.config_file = os.path.join(cur_dir, "settings", "config.ini")
-        self. output_dir = os.path.join(cur_dir, "out")
+        self.config_file = os.path.join(cur_dir, Config.SETTINGS_DIR, Config.CONFIG_FILE)
+        self. output_dir = os.path.join(cur_dir, Config.OUTPUT_DIR)
         self.logger.debug(f"config file: {self.config_file}")
         self.logger.debug(f"output_dir: {self.output_dir}")
+
+    @property
+    def name(self) -> str:
+        """
+        The method for generating the summary can be freely customized by overriding it.
+        :return: None
+        """
+        return 'FetchLogFactory'
 
     def fetch_summary(self, hostname: str, ipaddr: str, command_result: List[str]):
         """
