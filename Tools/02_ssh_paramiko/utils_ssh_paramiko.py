@@ -161,6 +161,7 @@ class ExecutorInterface(ABC):
         # for text in self.results:
         #     self.logger.info(text)
 
+
 # Concrete Executor.
 class FetchFileListExecutor(ExecutorInterface):
     @staticmethod
@@ -206,8 +207,68 @@ class SwitchListDataset(object):
             print(f' --- {cnt} ---')
             print(f'hostname : {self.hostname_list[cnt]}')
             print(f'ipaddr   : {self.ipaddr_list[cnt]}')
-
         return 'end of SwitchConfigList'
+
+
+#-------------
+# Orchestrator
+#-------------
+class FetchLogFactory(object):
+    def __init__(self,
+                 dataset_cls: Type[SwitchListDataset],
+                 executor_cls: Type[ExecutorInterface]):
+        self.dataset_cls = dataset_cls
+        self.executor_cls = executor_cls
+        self.username = Config.USERNAME
+        self.password = Config.PASSWORD
+        self.port = Config.PORT
+        self.level = Config.LEVEL
+        self.logger = setup_logger('FetchLogFactory', level=self.level)
+        self.config_file = None
+        self.output_dir = None
+        self.create_file_path()
+        self.summary = []
+
+    def create_file_path(self):
+        cur_dir = os.getcwd()
+        self.config_file = os.path.join(cur_dir, "settings", "config.ini")
+        self. output_dir = os.path.join(cur_dir, "out")
+        self.logger.debug(f"config file: {self.config_file}")
+        self.logger.debug(f"output_dir: {self.output_dir}")
+
+    def fetch_summary(self, hostname: str, ipaddr: str, command_result: List[str]):
+        """
+
+        :return:
+        """
+        result = dict()
+        result['HOSTNAME'] = hostname
+        result['IPADDR'] = ipaddr
+        texts = []
+        for text in command_result:
+            text = str(text).lstrip("b'")
+            text = str(text).lstrip("'")
+            print(text)
+            texts.append(text)
+        result['COMMAND_RESULT'] = texts
+        self.summary.append(result)
+
+    def fetch_log_from_targets(self):
+        dataset = self.dataset_cls(self.config_file)
+        for cnt in range(len(dataset.ipaddr_list)):
+            print(f' --- {cnt} ---')
+            print(f'hostname : {dataset.hostname_list[cnt]}')
+            print(f'ipaddr   : {dataset.ipaddr_list[cnt]}')
+            executor_cls = self.executor_cls(
+                ip=dataset.ipaddr_list[cnt],
+                username=self.username, password=self.password,
+                port=self.port, out_dir=self.output_dir, level=self.level)
+            executor_cls.run()
+            # executor_cls.write_log()
+            self.fetch_summary(hostname=dataset.hostname_list[cnt],
+                               ipaddr=dataset.ipaddr_list[cnt],
+                               command_result=executor_cls.results)
+
 
 def main(executor_cls: Type[ExecutorInterface]):
 
