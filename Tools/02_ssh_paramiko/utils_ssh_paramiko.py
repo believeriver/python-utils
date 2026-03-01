@@ -263,7 +263,7 @@ class FetchLogFactory(object):
                 filename=dataset.hostname_list[cnt],out_dir=self.output_dir,
                 level=self.level)
             executor_cls.run()
-            # executor_cls.write_log()
+            executor_cls.write_log()
             self.fetch_summary(hostname=dataset.hostname_list[cnt],
                                ipaddr=dataset.ipaddr_list[cnt],
                                command_result=executor_cls.results)
@@ -276,8 +276,7 @@ class FetchLogFactory(object):
 
 
 
-def main(executor_cls: Type[ExecutorInterface]):
-
+def main_test(executor_cls: Type[ExecutorInterface]):
     cur_dir = os.getcwd()
     config_file = os.path.join(cur_dir, "settings", "config.ini")
     output_dir = os.path.join(cur_dir, "out")
@@ -290,6 +289,7 @@ def main(executor_cls: Type[ExecutorInterface]):
         port=Config.PORT, filename='test', out_dir=output_dir,level=Config.LEVEL)
     executor.write_log()
 
+
 def main_cls():
     executor_cls = FetchFileListExecutor
     dataset_cls = SwitchListDataset
@@ -298,6 +298,6 @@ def main_cls():
 
 if __name__ == '__main__':
     # ex = FetchFileListExecutor
-    # main(ex)
+    # main_test(ex)
     main_cls()
 
