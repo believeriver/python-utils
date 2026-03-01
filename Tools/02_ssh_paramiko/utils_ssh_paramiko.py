@@ -323,3 +323,5 @@ if __name__ == '__main__':
     main_cls(factory, executor1)
     main_cls(factory, executor2)
 
+    gc.collect()
+
