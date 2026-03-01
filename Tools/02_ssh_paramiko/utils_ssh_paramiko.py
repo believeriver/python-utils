@@ -143,14 +143,14 @@ class ExecutorInterface(ABC):
         if self.results is None:
             self.run()
 
-        self.logger.info(f'--- write to {self.out_filename} ---')
+        self.logger.info(f'write to {self.out_filename}')
         with open(self.out_filename, mode="w") as f:
             for text in self.results:
                 text = str(text).lstrip("b'")
                 text = str(text).lstrip("'")
                 f.write(text + "\n")
                 self.logger.debug(text)
-        self.logger.debug('--- end to write logs ---')
+        self.logger.info('end to write logs')
 
     def run(self) -> None:
         self.results = self.ssh_client.execute_command().split("\n")
@@ -249,7 +249,7 @@ class FetchLogFactory(object):
     def fetch_summary(self, hostname: str, ipaddr: str, command_result: List[str]):
         """
         The method for generating the summary can be freely customized by overriding it.
-        :return:
+        :return: None
         """
         result = dict()
         result['HOSTNAME'] = hostname
@@ -258,18 +258,27 @@ class FetchLogFactory(object):
         for text in command_result:
             text = str(text).lstrip("b'")
             text = str(text).lstrip("'")
-            print(text)
+            self.logger.debug(text)
             texts.append(text)
         result['COMMAND_RESULT'] = texts
         self.summary.append(result)
+
+    def print_summary(self):
+        """
+        The method for generating the summary can be freely customized by overriding it.
+        :return: None
+        """
+        # for item in self.summary:
+        #     print(",".join(str(x) for x in item))
+        self.logger.info(json.dumps(self.summary, indent=2, ensure_ascii=False))
 
     def fetch_log_from_targets(self):
         dataset = self.dataset_cls(self.config_file)
         self.logger.info("Start fetch log from dataset in FetchLogs")
         for cnt in range(len(dataset.ipaddr_list)):
-            print(f' --- {cnt} ---')
-            print(f'hostname : {dataset.hostname_list[cnt]}')
-            print(f'ipaddr   : {dataset.ipaddr_list[cnt]}')
+            self.logger.info(f' --- {cnt} ---')
+            self.logger.info(f'hostname : {dataset.hostname_list[cnt]}')
+            self.logger.info(f'ipaddr   : {dataset.ipaddr_list[cnt]}')
             executor_cls = self.executor_cls(
                 ip=dataset.ipaddr_list[cnt],
                 username=self.username, password=self.password, port=self.port,
@@ -283,9 +292,8 @@ class FetchLogFactory(object):
 
     def run(self):
         self.fetch_log_from_targets()
-        self.logger.info(json.dumps(self.summary, indent=2, ensure_ascii=False))
-        # for item in self.summary:
-        #     print(",".join(str(x) for x in item))
+        self.logger.info("Finish fetch log from targets in FetchLogs")
+        self.print_summary()
 
 
 def main_test(executor_cls: Type[ExecutorInterface]):
