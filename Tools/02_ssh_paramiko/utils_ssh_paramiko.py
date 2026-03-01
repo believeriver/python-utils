@@ -172,6 +172,18 @@ class FetchFileListExecutor(ExecutorInterface):
         return "FetchFileListExecutor"
 
 
+class FetchPwdExecutor(ExecutorInterface):
+    @staticmethod
+    def build_command() -> List[str]:
+        return [
+            "pwd",
+        ]
+
+    @property
+    def name(self) -> str:
+        return "FetchPwdExecutor"
+
+
 #-----------------
 # Utils
 #-----------------
@@ -296,8 +308,10 @@ def main_cls(factory_cls: Type[FetchLogFactory], executor_cls: Type[ExecutorInte
     executor_factory.run()
 
 if __name__ == '__main__':
-    executor = FetchFileListExecutor
+    executor1 = FetchFileListExecutor
+    executor2 = FetchPwdExecutor
     factory = FetchLogFactory
     # main_test(ex)
-    main_cls(factory, executor)
+    main_cls(factory, executor1)
+    main_cls(factory, executor2)
 
