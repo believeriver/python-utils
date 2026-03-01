@@ -18,7 +18,8 @@ class Config(object):
     USERNAME = "root"
     PASSWORD = "rootroot"
     PORT = 22
-    LEVEL = logging.DEBUG
+    # LEVEL = logging.DEBUG
+    LEVEL = logging.INFO
 
 
 #-----------------------
@@ -290,14 +291,13 @@ def main_test(executor_cls: Type[ExecutorInterface]):
     executor.write_log()
 
 
-def main_cls():
-    executor_cls = FetchFileListExecutor
+def main_cls(executor_cls: Type[ExecutorInterface]):
     dataset_cls = SwitchListDataset
     executor_factory = FetchLogFactory(dataset_cls, executor_cls)
     executor_factory.run()
 
 if __name__ == '__main__':
-    # ex = FetchFileListExecutor
+    ex = FetchFileListExecutor
     # main_test(ex)
-    main_cls()
+    main_cls(ex)
 
