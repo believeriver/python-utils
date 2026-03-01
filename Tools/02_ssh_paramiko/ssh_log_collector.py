@@ -45,9 +45,9 @@ from typing import List, Type
 import gc
 
 
-#-----------------------
+# -----------------------------
 #Config
-#-----------------------
+# -----------------------------
 class Config(object):
     USERNAME = "root"
     PASSWORD = "rootroot"
@@ -56,9 +56,9 @@ class Config(object):
     LEVEL = logging.INFO
 
 
-#-----------------------
+# -----------------------------
 # Logger
-#-----------------------
+# -----------------------------
 def setup_logger(name, level=logging.INFO):
     logger = logging.getLogger(name)
     logger.setLevel(level)
@@ -70,18 +70,18 @@ def setup_logger(name, level=logging.INFO):
     return logger
 
 
-#-----------------------
+# -----------------------------
 # SSH Client Interface
-#-----------------------
+# -----------------------------
 class SSHClientInterface(ABC):
     @abstractmethod
     def execute_command(self) -> str:
         pass
 
 
-#-----------------------
+# -----------------------------
 # Paramiko SSH Client Implementation
-#-----------------------
+# -----------------------------
 class ParamikoSSHClient(SSHClientInterface):
     def __init__(self,
                  ip: str,
@@ -164,9 +164,9 @@ class ParamikoSSHClient(SSHClientInterface):
                 self.logger.debug("Error during close(): %s", e)
 
 
-#---------------
+# -----------------------------
 # Executor
-#---------------
+# -----------------------------
 class ExecutorInterface(ABC):
     def __init__(self,
                  ip: str,
@@ -204,10 +204,12 @@ class ExecutorInterface(ABC):
     @staticmethod
     def set_out_filename(filename: str, out_dir) -> str:
         now_date = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f"{filename}_{now_date}.txt"
         if out_dir is None:
-            return filename + "_" + now_date
+            return filename
         else:
-            return out_dir + "/" + filename + "_" + now_date
+            filepath = os.path.join(out_dir, filename)
+            return filepath
 
     def write_log(self):
         """
@@ -228,12 +230,17 @@ class ExecutorInterface(ABC):
 
     def run(self) -> None:
         self.results = self.ssh_client.execute_command().split("\n")
-        # for text in self.results:
-        #     self.logger.info(text)
 
 
+# -----------------------------
 # Concrete Executor.
+# -----------------------------
 class FetchFileListExecutor(ExecutorInterface):
+    """
+    2026.03.01 sample code for Linux command.
+    show /home file list.
+    show nfs volume.
+    """
     @staticmethod
     def build_command() -> List[str]:
         return [
@@ -247,6 +254,10 @@ class FetchFileListExecutor(ExecutorInterface):
 
 
 class FetchPwdExecutor(ExecutorInterface):
+    """
+    2026.03.01 sample code for Linux command.
+    show current directory.
+    """
     @staticmethod
     def build_command() -> List[str]:
         return [
@@ -258,9 +269,9 @@ class FetchPwdExecutor(ExecutorInterface):
         return "FetchPwdExecutor"
 
 
-#-----------------
+# -----------------------------
 # Utils
-#-----------------
+# -----------------------------
 class SwitchListDataset(object):
     """
     fetch ip address and hostname list from config life.
@@ -273,9 +284,7 @@ class SwitchListDataset(object):
 
     def import_config(self):
         with open(self.config_file, mode="r") as f:
-            # items = f.readlines()
             items = f.read().splitlines()
-            # print(items)
 
         for item in items:
             hostname, ipaddr = item.split(",")
@@ -290,9 +299,9 @@ class SwitchListDataset(object):
         return 'end of SwitchConfigList'
 
 
-#-------------
+# -----------------------------
 # Orchestrator
-#-------------
+# -----------------------------
 class FetchLogFactory(object):
     def __init__(self,
                  dataset_cls: Type[SwitchListDataset],
