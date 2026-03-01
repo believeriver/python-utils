@@ -63,7 +63,7 @@ class ParamikoSSHClient(SSHClientInterface):
 
     def execute_command(self) -> str:
         execute_result = None
-        self.logger.debug(f"--- execute command: {self.commands} ---")
+        self.logger.debug(f"execute command: {self.commands}")
         try:
             with (paramiko.SSHClient() as client):
                 client.set_missing_host_key_policy(paramiko.AutoAddPolicy)
@@ -98,14 +98,15 @@ class ExecutorInterface(ABC):
                  username: str,
                  password: str,
                  port: int = 22,
+                 filename: str = 'hostname',
                  out_dir: str = None,
                  level = logging.INFO,
                  ):
         self.commands = self.build_command()
-        self.filename = self.build_filename()
-        self.version = self.build_version()
+        # self.version = self.build_version()
+        self.filename = filename
         self.out_filename = self.set_out_filename(self.filename, out_dir)
-        self.logger = setup_logger(self.version, level=level)
+        self.logger = setup_logger(self.name, level=level)
         self.results = None
         self.ssh_client = ParamikoSSHClient(
             ip = ip,
@@ -121,14 +122,9 @@ class ExecutorInterface(ABC):
     def build_command() -> List[str]:
         pass
 
-    @staticmethod
+    @property
     @abstractmethod
-    def build_filename() -> str:
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def build_version() -> str:
+    def name(self) -> str:
         pass
 
     @staticmethod
@@ -171,13 +167,9 @@ class FetchFileListExecutor(ExecutorInterface):
             "df"
         ]
 
-    @staticmethod
-    def build_filename() -> str:
-        return "file_list"
-
-    @staticmethod
-    def build_version() -> str:
-        return "fetch_file_list_executor"
+    @property
+    def name(self) -> str:
+        return "FetchFileListExecutor"
 
 
 #-----------------
@@ -223,11 +215,15 @@ class FetchLogFactory(object):
         self.password = Config.PASSWORD
         self.port = Config.PORT
         self.level = Config.LEVEL
-        self.logger = setup_logger('FetchLogFactory', level=self.level)
+        self.logger = setup_logger(self.name, level=self.level)
         self.config_file = None
         self.output_dir = None
         self.create_file_path()
         self.summary = []
+
+    @property
+    def name(self) -> str:
+        return 'FetchLogFactory'
 
     def create_file_path(self):
         cur_dir = os.getcwd()
@@ -255,14 +251,16 @@ class FetchLogFactory(object):
 
     def fetch_log_from_targets(self):
         dataset = self.dataset_cls(self.config_file)
+        self.logger.info("Start fetch log from dataset in FetchLogs")
         for cnt in range(len(dataset.ipaddr_list)):
             print(f' --- {cnt} ---')
             print(f'hostname : {dataset.hostname_list[cnt]}')
             print(f'ipaddr   : {dataset.ipaddr_list[cnt]}')
             executor_cls = self.executor_cls(
                 ip=dataset.ipaddr_list[cnt],
-                username=self.username, password=self.password,
-                port=self.port, out_dir=self.output_dir, level=self.level)
+                username=self.username, password=self.password, port=self.port,
+                filename=dataset.hostname_list[cnt],out_dir=self.output_dir,
+                level=self.level)
             executor_cls.run()
             # executor_cls.write_log()
             self.fetch_summary(hostname=dataset.hostname_list[cnt],
@@ -281,7 +279,7 @@ def main(executor_cls: Type[ExecutorInterface]):
     # ip = "192.168.64.2"
     executor = executor_cls(
         ip=dataset.ipaddr_list[0], username=Config.USERNAME, password=Config.PASSWORD,
-        port=Config.PORT, out_dir=output_dir,level=Config.LEVEL)
+        port=Config.PORT, filename='test', out_dir=output_dir,level=Config.LEVEL)
     executor.write_log()
 
 
