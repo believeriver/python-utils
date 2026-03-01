@@ -6,7 +6,7 @@ import time
 import os
 import logging
 import json
-from typing import List, Sequence
+from typing import List, Type
 import gc
 
 
@@ -161,7 +161,7 @@ class ExecutorInterface(ABC):
         # for text in self.results:
         #     self.logger.info(text)
 
-
+# Concrete Executor.
 class FetchFileListExecutor(ExecutorInterface):
     @staticmethod
     def build_command() -> List[str]:
@@ -209,21 +209,22 @@ class SwitchListDataset(object):
 
         return 'end of SwitchConfigList'
 
-def main():
+def main(executor_cls: Type[ExecutorInterface]):
 
     cur_dir = os.getcwd()
     config_file = os.path.join(cur_dir, "settings", "config.ini")
     output_dir = os.path.join(cur_dir, "out")
-    print(config_file)
+    print({"[INFO] config.ini: ", config_file})
     dataset = SwitchListDataset(config_file)
     print(dataset)
-    ip = "192.168.64.2"
-    executor = FetchFileListExecutor(
-        ip=ip, username=Config.USERNAME, password=Config.PASSWORD,
+    # ip = "192.168.64.2"
+    executor = executor_cls(
+        ip=dataset.ipaddr_list[0], username=Config.USERNAME, password=Config.PASSWORD,
         port=Config.PORT, out_dir=output_dir,level=Config.LEVEL)
     executor.write_log()
 
 
 if __name__ == '__main__':
-    main()
+    ex = FetchFileListExecutor
+    main(ex)
 
