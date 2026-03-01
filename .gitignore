@@ -20,5 +20,5 @@ git_settings.txt
 02_django_restframework/api_matsumoto/tweet_api_project/tweet_api_project/__pycache__/
 02_django_restframework/api_matsumoto/tweet_api_client/tweet_api_client/__pycache__/
 Tools/02_ssh_paramiko/out
-
+Tools/02_ssh_paramiko/archive
 
