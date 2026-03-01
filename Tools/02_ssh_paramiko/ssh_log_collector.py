@@ -1,9 +1,43 @@
+"""
+Description:
+    SSH-based log collection tool for network devices and Linux hosts.
+
+    This script connects to one or more targets over SSH (via Paramiko),
+    runs a predefined set of commands (Executor), writes the command output
+    to timestamped log files, and prints a JSON-formatted execution summary.
+
+    Targets are loaded from a simple CSV-style config file:
+        settings/config.ini  (one line per target: "hostname,ipaddr")
+
+    Key components:
+      - ParamikoSSHClient: minimal interactive-shell SSH runner (invoke_shell)
+      - ExecutorInterface: defines a command set per task (e.g., file list, pwd)
+      - FetchLogFactory: orchestrates execution across all targets and builds a summary
+
+    Usage:
+        python <script_name>.py <target> [--debug|--info]
+
+        target:
+            1 = FetchFileListExecutor  (e.g., "ls -l /home --color=never", "df -h")
+            2 = FetchPwdExecutor       (e.g., "pwd")
+
+    Output:
+        - Per-target log file under ./out/
+        - JSON summary printed to stdout/log
+
+Author:
+    Nobuyuki Tagawa
+
+Version:
+    1.0.0  (2026-02-28)
+"""
 from abc import ABC, abstractmethod
 import paramiko
 import subprocess
 import datetime
 import time
 import os
+import sys
 import socket
 import logging
 import json
@@ -14,7 +48,6 @@ import gc
 #-----------------------
 #Config
 #-----------------------
-
 class Config(object):
     USERNAME = "root"
     PASSWORD = "rootroot"
@@ -44,6 +77,7 @@ class SSHClientInterface(ABC):
     @abstractmethod
     def execute_command(self) -> str:
         pass
+
 
 #-----------------------
 # Paramiko SSH Client Implementation
@@ -336,19 +370,62 @@ class FetchLogFactory(object):
         self.print_summary()
 
 
+# -----------------------------
+# CLI / main
+# -----------------------------
+def parse_args(argv):
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    log_level = logging.WARNING
+    debug = False
+    info = False
+
+    print(f"[INFO] {today}")
+    if len(argv) == 0:
+        print("Please input option (number, log level)")
+        exit(1)
+
+    target = argv[0]
+    i = 1
+    while i < len(argv):
+        a = argv[i]
+        if a == "--debug":
+            log_level = logging.DEBUG
+            debug = True
+            i += 1
+            continue
+        if a == "--info":
+            log_level = logging.INFO
+            info = True
+            i += 1
+            continue
+        i += 1
+    return int(target), log_level, debug, info
+
+
 def main_cls(factory_cls: Type[FetchLogFactory], executor_cls: Type[ExecutorInterface]):
     dataset_cls = SwitchListDataset
     executor_factory = factory_cls(dataset_cls, executor_cls)
     executor_factory.run()
 
 
-if __name__ == '__main__':
-    executor1 = FetchFileListExecutor
-    executor2 = FetchPwdExecutor
+def main(argv=None):
+    target, log_level, debug, info = parse_args(argv)
     factory = FetchLogFactory
-    # main_test(ex)
-    main_cls(factory, executor1)
-    main_cls(factory, executor2)
+    executor = None
+    if target == 1:
+        executor = FetchFileListExecutor
+    if target == 2:
+        executor = FetchPwdExecutor
+
+    if executor is None:
+        exit(1)
+    else:
+        main_cls(factory, executor)
+
+
+if __name__ == '__main__':
+    # print(sys.argv)
+    main(sys.argv[1:])
 
     gc.collect()
 
