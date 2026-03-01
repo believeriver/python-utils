@@ -103,7 +103,6 @@ class ExecutorInterface(ABC):
                  level = logging.INFO,
                  ):
         self.commands = self.build_command()
-        # self.version = self.build_version()
         self.filename = filename
         self.out_filename = self.set_out_filename(self.filename, out_dir)
         self.logger = setup_logger(self.name, level=level)
@@ -187,7 +186,9 @@ class SwitchListDataset(object):
 
     def import_config(self):
         with open(self.config_file, mode="r") as f:
-            items = f.readlines()
+            # items = f.readlines()
+            items = f.read().splitlines()
+            # print(items)
 
         for item in items:
             hostname, ipaddr = item.split(",")
@@ -267,6 +268,13 @@ class FetchLogFactory(object):
                                ipaddr=dataset.ipaddr_list[cnt],
                                command_result=executor_cls.results)
 
+    def run(self):
+        self.fetch_log_from_targets()
+        self.logger.info(json.dumps(self.summary, indent=2, ensure_ascii=False))
+        # for item in self.summary:
+        #     print(",".join(str(x) for x in item))
+
+
 
 def main(executor_cls: Type[ExecutorInterface]):
 
@@ -282,8 +290,14 @@ def main(executor_cls: Type[ExecutorInterface]):
         port=Config.PORT, filename='test', out_dir=output_dir,level=Config.LEVEL)
     executor.write_log()
 
+def main_cls():
+    executor_cls = FetchFileListExecutor
+    dataset_cls = SwitchListDataset
+    executor_factory = FetchLogFactory(dataset_cls, executor_cls)
+    executor_factory.run()
 
 if __name__ == '__main__':
-    ex = FetchFileListExecutor
-    main(ex)
+    # ex = FetchFileListExecutor
+    # main(ex)
+    main_cls()
 
