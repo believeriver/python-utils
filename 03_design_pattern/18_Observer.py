@@ -28,3 +28,42 @@ class ItemSubject(ABC):
     def __init__(self, name: str):
         self.__name = name
         self.__observers: List[Observer] = []
+
+    def attach(self, observer: Observer):
+        self.__observers.append(observer)
+
+    def detach(self, observer: Observer):
+        self.__observers.remove(observer)
+
+    def notify(self):
+        for observer in self.__observers:
+            observer.update(self.__name)
+
+    @abstractmethod
+    def restock(self):
+        pass
+
+
+class TvGameSubject(ItemSubject):
+    def __init__(self, name: str):
+        super().__init__(name)
+        self.__in_stok = False
+
+    def restock(self):
+        print("TV Gameの入荷")
+        self.__in_stok = True
+        self.notify()
+
+
+if __name__ == '__main__':
+    store = StoreObserver()
+    person = PersonalObserver()
+
+    game = TvGameSubject("FF7")
+    game.attach(store)
+    game.attach(person)
+    game.restock()
+
+    game.detach(person)
+    game.restock()
+
