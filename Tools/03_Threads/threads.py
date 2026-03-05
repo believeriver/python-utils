@@ -88,17 +88,17 @@ class SSHClient(ISSHClientInterface):
 class ParamikoSSHClient(ISSHClientInterface):
     """SSH Client implementation using Paramiko"""
     def __init__(self,
-                 host: str,
-                 username: str,
-                 password: str,
-                 port: int = 22,
-                 commands:  List[str] = None,
-                 level=logging.INFO):
+                 level=logging.INFO,
+                 commands: List[str] = None,
+                 ssh_host: str = None,
+                 ssh_user: str = None,
+                 password: str = None,
+                 port: int = 22):
         super().__init__(
             logger=setup_logger("ParamikoSSHClient", level),
             commands=commands,
-            ssh_host=host,
-            ssh_user=username)
+            ssh_host=ssh_host,
+            ssh_user=ssh_user)
         self.password = password
         self.port = port
         self.commands = commands
