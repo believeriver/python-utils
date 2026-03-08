@@ -13,6 +13,8 @@ import json
 from typing import List, Type
 import gc
 
+from rpds.rpds import Queue
+
 
 # -----------------------------
 #Config
@@ -37,7 +39,7 @@ def setup_logger(name, level=logging.INFO):
     logger.setLevel(level)
     if not logger.handlers:
         h = logging.StreamHandler()
-        fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+        fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(threadName)s: %(message)s")
         h.setFormatter(fmt)
         logger.addHandler(h)
     return logger
@@ -254,6 +256,60 @@ class FetchLSDFExecutor(ISSHExecutorInterface):
     def name(self) -> str:
         return "FetchFileListExecutor"
 
+
+#-----------------------------
+# Thread Worker
+#-----------------------------
+class IThreadWorkerInterface(ABC):
+    def __init__(self, executor: Type[ISSHExecutorInterface], _queue, workers=1, timeout=10, level=Config.LEVEL):
+        self.executor = executor
+        self.queue = _queue
+        self.workers = workers
+        self.timeout_s = timeout
+        self.logger = setup_logger(self.name, level)
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+    @abstractmethod
+    def run(self):
+        pass
+
+    @abstractmethod
+    def worker(self):
+        pass
+
+
+class ThreadWorkers(IThreadWorkerInterface):
+    @property
+    def name(self) -> str:
+        return "ThreadWorkers"
+
+    def run(self):
+        ts = []
+        for _ in range(self.workers):
+            t = threading.Thread(target=self.worker)
+            t.start()
+            ts.append(t)
+        [self.queue.put(None) for _ in range(len(ts))]
+        [t.join() for t in ts]
+
+    @abstractmethod
+    def worker(self):
+        self.logger.info('workers start')
+        while True:
+            item = self.queue.get()
+            if item is None:
+                break
+            self.logger.info({'thread': item})
+            self.executor.execute(item)
+            self.queue.task_done()
+        self.logger.info('workers end')
+
+    def some_process(self):
+        pass
 
 #-----------------------------
 # Main
