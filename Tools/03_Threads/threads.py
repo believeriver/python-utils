@@ -258,7 +258,7 @@ class FetchLSDFExecutor(ISSHExecutorInterface):
 #-----------------------------
 # Main
 #-----------------------------
-if __name__ == "__main__":
+def main():
     # Load config (if needed)
     # config = ConfigLoader.load(Config.CONFIG_FILE)
 
@@ -276,3 +276,7 @@ if __name__ == "__main__":
     print('1', results_1)
     print('-' * 40)
     print('2', results_2)
+
+
+if __name__ == "__main__":
+    main()
