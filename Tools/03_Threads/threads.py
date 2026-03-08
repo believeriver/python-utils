@@ -11,6 +11,7 @@ import queue
 import threading
 import json
 from typing import List, Type
+from dataclasses import dataclass
 import gc
 
 from rpds.rpds import Queue
@@ -23,6 +24,7 @@ class Config(object):
     USERNAME = "root"
     PASSWORD = "rootroot"
     PORT = 22
+    TIMEOUT = 30
 
     CONFIG_FILE = "config.ini"
     SETTINGS_DIR = "settings"
@@ -180,8 +182,20 @@ class ParamikoSSHClient(ISSHClientInterface):
 #-----------------------------
 # SSH Executor
 #-----------------------------
+@dataclass
+class ServerInfo:
+    hostname: str = None
+    username: str = Config.USERNAME
+    password: str = Config.PASSWORD
+    port: int = Config.PORT
+    timeout: int = Config.TIMEOUT
+
+
 class ISSHExecutorInterface(ABC):
-    def __init__(self, ssh_client_cls: Type[ISSHClientInterface], level=Config.LEVEL):
+    def __init__(self,
+                 ssh_client_cls: Type[ISSHClientInterface],
+                 server_info: ServerInfo = ServerInfo(),
+                 level=Config.LEVEL):
         self.ssh_client_cls = ssh_client_cls
         self.logger = setup_logger(self.name, level)
         self.commands = self.build_command()
