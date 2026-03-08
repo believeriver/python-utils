@@ -47,19 +47,36 @@ def setup_logger(name, level=logging.INFO):
 # -----------------------------
 class ISSHClientInterface(ABC):
     """SSH Client implementation using subprocess or paramiko."""
-    def __init__(self, logger, commands: List[str], ssh_host=None, ssh_user=None):
-        self.log = logger
+    def __init__(self,
+                 commands: List[str],
+                 hostname=None,
+                 username=None,
+                 password: str = None,
+                 port: int = 22,
+                 level=Config.LEVEL,):
+        self.log = self._set_logger(level=level)
         self.commands = commands
-        self.ssh_host = ssh_host
-        self.ssh_user = ssh_user
+        self.ssh_host = hostname
+        self.ssh_user = username
+        self.password = password
+        self.port = port
+
+    @staticmethod
+    @abstractmethod
+    def _set_logger(level):
+        return setup_logger("ISSHClientInterface", level)
 
     @abstractmethod
     def execute_command(self):
         pass
 
 
-class SSHClient(ISSHClientInterface):
+class SSHClientSubprocess(ISSHClientInterface):
     """SSH Client implementation using subprocess"""
+    @staticmethod
+    def _set_logger(level):
+        return setup_logger("SSHClientSubprocess", level)
+
     def execute_command(self):
         self.log.debug({"commands": self.commands})
         cmd = []
@@ -87,22 +104,9 @@ class SSHClient(ISSHClientInterface):
 
 class ParamikoSSHClient(ISSHClientInterface):
     """SSH Client implementation using Paramiko"""
-    def __init__(self,
-                 level=logging.INFO,
-                 commands: List[str] = None,
-                 ssh_host: str = None,
-                 ssh_user: str = None,
-                 password: str = None,
-                 port: int = 22):
-        super().__init__(
-            logger=setup_logger("ParamikoSSHClient", level),
-            commands=commands,
-            ssh_host=ssh_host,
-            ssh_user=ssh_user)
-        self.password = password
-        self.port = port
-        self.commands = commands
-        self.logger = setup_logger("ParamikoSSHClient", level)
+    @staticmethod
+    def _set_logger(level):
+        return setup_logger("ParamikoSSHClient", level)
 
     @staticmethod
     def _recv_all(chan: paramiko.Channel, max_wait_s: float = 1.0) -> str:
@@ -128,7 +132,7 @@ class ParamikoSSHClient(ISSHClientInterface):
         return data.decode("utf-8", errors="replace")
 
     def execute_command(self) -> str:
-        self.logger.debug("execute command: %s", self.commands)
+        self.log.debug("execute command: %s", self.commands)
 
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -168,5 +172,107 @@ class ParamikoSSHClient(ISSHClientInterface):
             try:
                 client.close()
             except Exception as e:
-                self.logger.debug("Error during close(): %s", e)
+                self.log.debug("Error during close(): %s", e)
 
+
+#-----------------------------
+# SSH Executor
+#-----------------------------
+class ISSHExecutorInterface(ABC):
+    def __init__(self, ssh_client_cls: Type[ISSHClientInterface], level=Config.LEVEL):
+        self.ssh_client_cls = ssh_client_cls
+        self.logger = setup_logger(self.name, level)
+        self.commands = self.build_command()
+
+    def execute(self, ssh_host, ssh_user, password=None):
+        ssh_client = self.ssh_client_cls(
+            hostname=ssh_host,
+            username=ssh_user,
+            password=password,
+            commands=self.commands,
+        )
+        return ssh_client.execute_command()
+
+    def execute_multi(self, targets: List[dict]):
+        results = []
+        for target in targets:
+            ssh_host = target.get("host")
+            ssh_user = target.get("user", Config.USERNAME)
+            password = target.get("password", Config.PASSWORD)
+            # commands = target.get("commands", [])
+            self.logger.debug("Executing on %s@%s with commands: %s", ssh_user, ssh_host, self.commands)
+            result = self.execute(ssh_host, ssh_user, password)
+            results.append({"host": ssh_host, "result": result})
+        return results
+
+    @staticmethod
+    @abstractmethod
+    def build_command() -> List[str]:
+        pass
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+
+# -----------------------------
+# Concrete Executor.
+# -----------------------------
+class FetchFileListExecutor(ISSHExecutorInterface):
+    """
+    2026.03.01 sample code for Linux command.
+    show /home file list.
+    """
+    @staticmethod
+    def build_command() -> List[str]:
+        return [
+            "ls -l /home --color=never",
+        ]
+
+    @property
+    def name(self) -> str:
+        return "FetchFileListExecutor"
+
+
+class FetchLSDFExecutor(ISSHExecutorInterface):
+    """
+    2026.03.01 sample code for Linux command.
+    show /home file list.
+    show nfs volume.
+    2つ以上のコマンドを実行する例。
+    ParamikoSSHClient()で実行することを想定（複数コマンドの実行はsubprocessだと少し面倒なので）。
+    """
+    @staticmethod
+    def build_command() -> List[str]:
+        return [
+            "ls /home --color=never",
+            "df -h"
+        ]
+
+    @property
+    def name(self) -> str:
+        return "FetchFileListExecutor"
+
+
+#-----------------------------
+# Main
+#-----------------------------
+if __name__ == "__main__":
+    # Load config (if needed)
+    # config = ConfigLoader.load(Config.CONFIG_FILE)
+
+    executor1 = FetchFileListExecutor(ssh_client_cls=SSHClientSubprocess, level=Config.LEVEL)
+    executor2 = FetchLSDFExecutor(ssh_client_cls=ParamikoSSHClient, level=Config.LEVEL)
+
+    targets = [
+        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        # Add more targets as needed
+    ]
+    results_1 = executor1.execute(targets[0]["host"], targets[0]["user"])
+    results_2 = executor2.execute(targets[0]["host"], targets[0]["user"], targets[0]["password"])
+
+    print('-' * 40)
+    print('1', results_1)
+    print('-' * 40)
+    print('2', results_2)
