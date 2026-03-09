@@ -325,12 +325,20 @@ def main():
 
     targets = [
         {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
         # Add more targets as needed
     ]
 
-    server_info = ServerInfo(hostname=targets[0]["host"], username=targets[0]["user"])
-    executor1 = FetchFileListExecutor(ssh_client_cls=SSHClientSubprocess, server_info=server_info,level=Config.LEVEL)
-    executor2 = FetchLSDFExecutor(ssh_client_cls=ParamikoSSHClient, server_info=server_info,level=Config.LEVEL)
+    datasets = []
+    for t in targets:
+        server_info = ServerInfo(hostname=t.get("host", ""), username=t.get("user", ""), password=t.get("password", ""))
+        datasets.append(server_info)
+
+    print(datasets)
+
+    executor1 = FetchFileListExecutor(ssh_client_cls=SSHClientSubprocess, server_info=datasets[0],level=Config.LEVEL)
+    executor2 = FetchLSDFExecutor(ssh_client_cls=ParamikoSSHClient, server_info=datasets[1],level=Config.LEVEL)
 
     results_1 = executor1.execute()
     results_2 = executor2.execute()
