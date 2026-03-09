@@ -196,19 +196,30 @@ class ISSHExecutorInterface(ABC):
                  ssh_client_cls: Type[ISSHClientInterface],
                  server_info: ServerInfo,
                  level=Config.LEVEL):
-        self.server_info = server_info
         self.ssh_client_cls = ssh_client_cls
         self.logger = setup_logger(self.name, level)
         self.commands = self.build_command()
 
-    def execute(self):
+    def execute(self, ssh_host, ssh_user, password=None):
         ssh_client = self.ssh_client_cls(
-            hostname=self.server_info.hostname,
-            username=self.server_info.username,
-            password=self.server_info.password,
+            hostname=ssh_host,
+            username=ssh_user,
+            password=password,
             commands=self.commands,
         )
         return ssh_client.execute_command()
+
+    def execute_multi(self, targets: List[dict]):
+        results = []
+        for target in targets:
+            ssh_host = target.get("host")
+            ssh_user = target.get("user", Config.USERNAME)
+            password = target.get("password", Config.PASSWORD)
+            # commands = target.get("commands", [])
+            self.logger.debug("Executing on %s@%s with commands: %s", ssh_user, ssh_host, self.commands)
+            result = self.execute(ssh_host, ssh_user, password)
+            results.append({"host": ssh_host, "result": result})
+        return results
 
     @staticmethod
     @abstractmethod
@@ -264,11 +275,7 @@ class FetchLSDFExecutor(ISSHExecutorInterface):
 # Thread Worker
 #-----------------------------
 class IThreadWorkerInterface(ABC):
-    def __init__(self,
-                 ssh_client_cls: Type[ISSHClientInterface],
-                 executor: Type[ISSHExecutorInterface],
-                 _queue, workers=1, timeout=10, level=Config.LEVEL):
-        self.ssh_client_cls = ssh_client_cls
+    def __init__(self, executor: Type[ISSHExecutorInterface], _queue, workers=1, timeout=10, level=Config.LEVEL):
         self.executor = executor
         self.queue = _queue
         self.workers = workers
@@ -311,10 +318,12 @@ class ThreadWorkers(IThreadWorkerInterface):
             if item is None:
                 break
             self.logger.info({'thread': item})
-            self.executor(ssh_client_cls=self.ssh_client_cls, server_info=item)
+            self.executor.execute(item)
             self.queue.task_done()
         self.logger.info('workers end')
 
+    def some_process(self):
+        pass
 
 #-----------------------------
 # Main
@@ -323,17 +332,15 @@ def main():
     # Load config (if needed)
     # config = ConfigLoader.load(Config.CONFIG_FILE)
 
+    executor1 = FetchFileListExecutor(ssh_client_cls=SSHClientSubprocess, level=Config.LEVEL)
+    executor2 = FetchLSDFExecutor(ssh_client_cls=ParamikoSSHClient, level=Config.LEVEL)
+
     targets = [
         {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
         # Add more targets as needed
     ]
-
-    server_info = ServerInfo(hostname=targets[0]["host"], username=targets[0]["user"])
-    executor1 = FetchFileListExecutor(ssh_client_cls=SSHClientSubprocess, server_info=server_info,level=Config.LEVEL)
-    executor2 = FetchLSDFExecutor(ssh_client_cls=ParamikoSSHClient, server_info=server_info,level=Config.LEVEL)
-
-    results_1 = executor1.execute()
-    results_2 = executor2.execute()
+    results_1 = executor1.execute(targets[0]["host"], targets[0]["user"])
+    results_2 = executor2.execute(targets[0]["host"], targets[0]["user"], targets[0]["password"])
 
     print('-' * 40)
     print('1', results_1)
