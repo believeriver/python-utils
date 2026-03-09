@@ -311,7 +311,8 @@ class ThreadWorkers(IThreadWorkerInterface):
             if item is None:
                 break
             self.logger.info({'thread': item})
-            self.executor(ssh_client_cls=self.ssh_client_cls, server_info=item)
+            executor = self.executor(ssh_client_cls=self.ssh_client_cls, server_info=item)
+            executor.execute()
             self.queue.task_done()
         self.logger.info('workers end')
 
