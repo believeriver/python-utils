@@ -282,10 +282,8 @@ class FetchLSDFExecutor(ISSHExecutorInterface):
 #-----------------------------
 class IThreadWorkerInterface(ABC):
     def __init__(self,
-                 ssh_client_cls: Type[ISSHClientInterface],
                  executor: Type[ISSHExecutorInterface],
                  _queue, workers=1, timeout=10, level=Config.LEVEL):
-        self.ssh_client_cls = ssh_client_cls
         self.executor = executor
         self.queue = _queue
         self.workers = workers
@@ -320,7 +318,6 @@ class ThreadWorkers(IThreadWorkerInterface):
         [self.queue.put(None) for _ in range(len(ts))]
         [t.join() for t in ts]
 
-    @abstractmethod
     def worker(self):
         self.logger.info('workers start')
         while True:
@@ -337,6 +334,27 @@ class ThreadWorkers(IThreadWorkerInterface):
 #-----------------------------
 # Main
 #-----------------------------
+def main_thread():
+
+    targets = [
+        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        # Add more targets as needed
+    ]
+
+    q = queue.Queue()
+    for t in targets:
+        server_info = ServerInfo(
+            hostname=t.get("host", ""),
+            username=t.get("user", ""),
+            password=t.get("password", ""))
+        q.put(server_info)
+
+    worker = ThreadWorkers(executor=FetchFileListExecutor, _queue=q, workers=3, timeout=10, level=Config.LEVEL)
+    worker.run()
+
+
 def main():
     # Load config (if needed)
     # config = ConfigLoader.load(Config.CONFIG_FILE)
@@ -369,4 +387,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main_thread()
+
+    gc.collect()
