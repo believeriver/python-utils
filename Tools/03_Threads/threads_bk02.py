@@ -193,10 +193,11 @@ class ServerInfo:
 
 class ISSHExecutorInterface(ABC):
     def __init__(self,
+                 ssh_client_cls: Type[ISSHClientInterface],
                  server_info: ServerInfo,
                  level=Config.LEVEL):
         self.server_info = server_info
-        self.ssh_client_cls = self.build_ssh_client_cls()
+        self.ssh_client_cls = ssh_client_cls
         self.logger = setup_logger(self.name, level)
         self.commands = self.build_command()
 
@@ -208,15 +209,6 @@ class ISSHExecutorInterface(ABC):
             commands=self.commands,
         )
         return ssh_client.execute_command()
-
-    @staticmethod
-    @abstractmethod
-    def build_ssh_client_cls() -> Type[ISSHClientInterface]:
-        """実行するSSHクライアントのクラスを返す
-        ssh_client_cls: Type[ISSHClientInterface]
-        例: return SSHClientSubprocess
-        """
-        pass
 
     @staticmethod
     @abstractmethod
@@ -234,14 +226,9 @@ class ISSHExecutorInterface(ABC):
 # -----------------------------
 class FetchFileListExecutor(ISSHExecutorInterface):
     """
-    2026.03.11 sample code for Linux command.
-    SSHクライアントはSSHClientSubprocessを使用する例。
+    2026.03.01 sample code for Linux command.
     show /home file list.
     """
-    @staticmethod
-    def build_ssh_client_cls():
-        return SSHClientSubprocess
-
     @staticmethod
     def build_command() -> List[str]:
         return [
@@ -255,16 +242,12 @@ class FetchFileListExecutor(ISSHExecutorInterface):
 
 class FetchLSDFExecutor(ISSHExecutorInterface):
     """
-    2026.03.11 sample code for Linux command.
+    2026.03.01 sample code for Linux command.
     show /home file list.
     show nfs volume.
     2つ以上のコマンドを実行する例。
     ParamikoSSHClient()で実行することを想定（複数コマンドの実行はsubprocessだと少し面倒なので）。
     """
-    @staticmethod
-    def build_ssh_client_cls():
-        return ParamikoSSHClient
-
     @staticmethod
     def build_command() -> List[str]:
         return [
@@ -328,7 +311,7 @@ class ThreadWorkers(IThreadWorkerInterface):
             if item is None:
                 break
             self.logger.info({'thread': item})
-            executor = self.executor(server_info=item)
+            executor = self.executor(ssh_client_cls=self.ssh_client_cls, server_info=item)
             executor.execute()
             self.queue.task_done()
         self.logger.info('workers end')
@@ -355,15 +338,14 @@ def main():
 
     print(datasets)
 
-    executor1 = FetchFileListExecutor(server_info=datasets[0],level=Config.LEVEL)
-    executor2 = FetchLSDFExecutor(server_info=datasets[1],level=Config.LEVEL)
+    executor1 = FetchFileListExecutor(ssh_client_cls=SSHClientSubprocess, server_info=datasets[0],level=Config.LEVEL)
+    executor2 = FetchLSDFExecutor(ssh_client_cls=ParamikoSSHClient, server_info=datasets[1],level=Config.LEVEL)
 
     results_1 = executor1.execute()
     results_2 = executor2.execute()
 
     print('-' * 40)
-    for res in results_1:
-        print(1, res)
+    print('1', results_1)
     print('-' * 40)
     print('2', results_2)
 
