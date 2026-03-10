@@ -24,7 +24,7 @@ class Config(object):
     USERNAME = "root"
     PASSWORD = "rootroot"
     PORT = 22
-    TIMEOUT = 30
+    TIMEOUT = 10
 
     CONFIG_FILE = "config.ini"
     SETTINGS_DIR = "settings"
@@ -58,6 +58,7 @@ class ISSHClientInterface(ABC):
                  username=None,
                  password: str = None,
                  port: int = 22,
+                 timeout: int = 30,
                  level=Config.LEVEL,):
         self.log = self._set_logger(level=level)
         self.commands = commands
@@ -66,6 +67,7 @@ class ISSHClientInterface(ABC):
         self.ssh_user = username
         self.password = password
         self.port = port
+        self.timeout = timeout
 
     @staticmethod
     @abstractmethod
@@ -92,18 +94,30 @@ class SSHClientSubprocess(ISSHClientInterface):
         cmd += self.commands
 
         self.log.debug("Running commands: %s", " ".join(cmd))
-        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-        if p.returncode != 0:
-            self.log.info("commands failed rc=%s stderr=%s", p.returncode, p.stderr.strip())
-            raise RuntimeError("commands failed")
-        raw_lines = [ln for ln in p.stdout.splitlines() if ln.strip()]
+        try:
+            p = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+                timeout=self.timeout,)
+            if p.returncode != 0:
+                self.log.info("commands failed rc=%s stderr=%s", p.returncode, p.stderr.strip())
+                raise RuntimeError("commands failed")
+            raw_lines = [ln for ln in p.stdout.splitlines() if ln.strip()]
 
-        # debug: raw all
-        if self.log.isEnabledFor(logging.DEBUG):
-            self.log.debug("RAW_ALL_BEGIN total=%d", len(raw_lines))
-            for ln in raw_lines:
-                self.log.debug("RAW|%s", ln)
-            self.log.debug("RAW_ALL_END")
+            # debug: raw all
+            if self.log.isEnabledFor(logging.DEBUG):
+                self.log.debug("RAW_ALL_BEGIN total=%d", len(raw_lines))
+                for ln in raw_lines:
+                    self.log.debug("RAW|%s", ln)
+                self.log.debug("RAW_ALL_END")
+        except subprocess.TimeoutExpired as e:
+            # タイムアウト時のログ
+            self.log.error(f"[WARN] SSH command timed out: {e.cmd} (after {e.timeout} sec)")
+            # 必要ならここで何かクリーンアップ
+            # 例: タイムアウト専用の結果を返す・リトライキューに積むなど
+            return ""  # or None, or 特別なオブジェクト
 
         return raw_lines
 
@@ -149,7 +163,7 @@ class ParamikoSSHClient(ISSHClientInterface):
                 username=self.ssh_user,
                 password=self.password,
                 port=self.port,
-                timeout=30,
+                timeout=self.timeout,
                 banner_timeout=30,
                 auth_timeout=30,
                 look_for_keys=False,
@@ -197,11 +211,13 @@ class ServerInfo:
 class ISSHExecutorInterface(ABC):
     def __init__(self,
                  server_info: ServerInfo,
+                 timeout=Config.TIMEOUT,
                  level=Config.LEVEL):
         self.server_info = server_info
         self.ssh_client_cls = self.build_ssh_client_cls()
         self.logger = setup_logger(self.name, level)
         self.commands = self.build_command()
+        self.timeout = timeout
 
     def execute(self):
         ssh_client = self.ssh_client_cls(
@@ -210,6 +226,7 @@ class ISSHExecutorInterface(ABC):
             username=self.server_info.username,
             password=self.server_info.password,
             commands=self.commands,
+            timeout=self.timeout,
         )
         return ssh_client.execute_command()
 
@@ -287,7 +304,7 @@ class FetchLSDFExecutor(ISSHExecutorInterface):
 class IThreadWorkerInterface(ABC):
     def __init__(self,
                  executor: Type[ISSHExecutorInterface],
-                 _queue, workers=1, timeout=10, level=Config.LEVEL):
+                 _queue, workers=1, timeout=Config.TIMEOUT, level=Config.LEVEL):
         self.executor = executor
         self.queue = _queue
         self.workers = workers
@@ -329,7 +346,7 @@ class ThreadWorkers(IThreadWorkerInterface):
             if item is None:
                 break
             self.logger.info({'thread': item})
-            executor = self.executor(server_info=item)
+            executor = self.executor(server_info=item, timeout=self.timeout_s)
             executor.execute()
             self.queue.task_done()
         self.logger.info('workers end')
@@ -338,9 +355,9 @@ class ThreadWorkers(IThreadWorkerInterface):
 #-----------------------------
 # Main
 #-----------------------------
-def main_thread(targets: List[dict]):
+def main_thread(_targets: List[dict], workers=1, timeout=Config.TIMEOUT, level=Config.LEVEL):
     q = queue.Queue()
-    for t in targets:
+    for t in _targets:
         server_info = ServerInfo(
             ipaddr=t.get("host", ""),
             hostname=t.get("host", ""),
@@ -348,16 +365,21 @@ def main_thread(targets: List[dict]):
             password=t.get("password", ""))
         q.put(server_info)
 
-    worker = ThreadWorkers(executor=FetchFileListExecutor, _queue=q, workers=3, timeout=10, level=Config.LEVEL)
+    worker = ThreadWorkers(
+        executor=FetchFileListExecutor,
+        _queue=q,
+        workers=workers,
+        timeout=timeout,
+        level=level)
     worker.run()
 
 
-def main(targets: List[dict]):
+def main(_targets: List[dict]):
     # Load config (if needed)
     # config = ConfigLoader.load(Config.CONFIG_FILE)
 
     datasets = []
-    for t in targets:
+    for t in _targets:
         server_info = ServerInfo(
             ipaddr=t.get("host", ""),
             hostname=t.get("host", ""),
@@ -367,8 +389,8 @@ def main(targets: List[dict]):
 
     print(datasets)
 
-    executor1 = FetchFileListExecutor(server_info=datasets[0],level=Config.LEVEL)
-    executor2 = FetchLSDFExecutor(server_info=datasets[1],level=Config.LEVEL)
+    executor1 = FetchFileListExecutor(server_info=datasets[0],level=Config.LEVEL, timeout=Config.TIMEOUT)
+    executor2 = FetchLSDFExecutor(server_info=datasets[1],level=Config.LEVEL, timeout=Config.TIMEOUT)
 
     results_1 = executor1.execute()
     results_2 = executor2.execute()
@@ -383,11 +405,11 @@ def main(targets: List[dict]):
 if __name__ == "__main__":
     targets = [
         {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
-        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"host": "192.168.64.4", "user": Config.USERNAME, "password": Config.PASSWORD},
         {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
         # Add more targets as needed
     ]
 
-    main_thread(targets=targets)
+    main_thread(_targets=targets, workers=1, timeout=10, level=Config.LEVEL)
 
     gc.collect()
