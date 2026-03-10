@@ -53,7 +53,6 @@ class ISSHClientInterface(ABC):
     """SSH Client implementation using subprocess or paramiko."""
     def __init__(self,
                  commands: List[str],
-                 ipaddr=None,
                  hostname=None,
                  username=None,
                  password: str = None,
@@ -61,8 +60,7 @@ class ISSHClientInterface(ABC):
                  level=Config.LEVEL,):
         self.log = self._set_logger(level=level)
         self.commands = commands
-        self.hostname = hostname
-        self.ssh_host = ipaddr
+        self.ssh_host = hostname
         self.ssh_user = username
         self.password = password
         self.port = port
@@ -186,7 +184,6 @@ class ParamikoSSHClient(ISSHClientInterface):
 #-----------------------------
 @dataclass
 class ServerInfo:
-    ipaddr: str = None
     hostname: str = None
     username: str = Config.USERNAME
     password: str = Config.PASSWORD
@@ -205,7 +202,6 @@ class ISSHExecutorInterface(ABC):
 
     def execute(self):
         ssh_client = self.ssh_client_cls(
-            ipaddr=self.server_info.ipaddr,
             hostname=self.server_info.hostname,
             username=self.server_info.username,
             password=self.server_info.password,
@@ -338,11 +334,18 @@ class ThreadWorkers(IThreadWorkerInterface):
 #-----------------------------
 # Main
 #-----------------------------
-def main_thread(targets: List[dict]):
+def main_thread():
+
+    targets = [
+        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        # Add more targets as needed
+    ]
+
     q = queue.Queue()
     for t in targets:
         server_info = ServerInfo(
-            ipaddr=t.get("host", ""),
             hostname=t.get("host", ""),
             username=t.get("user", ""),
             password=t.get("password", ""))
@@ -352,17 +355,20 @@ def main_thread(targets: List[dict]):
     worker.run()
 
 
-def main(targets: List[dict]):
+def main():
     # Load config (if needed)
     # config = ConfigLoader.load(Config.CONFIG_FILE)
 
+    targets = [
+        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        # Add more targets as needed
+    ]
+
     datasets = []
     for t in targets:
-        server_info = ServerInfo(
-            ipaddr=t.get("host", ""),
-            hostname=t.get("host", ""),
-            username=t.get("user", ""),
-            password=t.get("password", ""))
+        server_info = ServerInfo(hostname=t.get("host", ""), username=t.get("user", ""), password=t.get("password", ""))
         datasets.append(server_info)
 
     print(datasets)
@@ -381,13 +387,6 @@ def main(targets: List[dict]):
 
 
 if __name__ == "__main__":
-    targets = [
-        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
-        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
-        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
-        # Add more targets as needed
-    ]
-
-    main_thread(targets=targets)
+    main_thread()
 
     gc.collect()
