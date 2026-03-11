@@ -164,6 +164,8 @@ class ParamikoSSHClient(ISSHClientInterface):
 
     def execute_command(self) -> str:
         self.log.debug("execute command: %s", self.commands)
+        if self.ssh_host is None:
+            return "[ERROR] SSH host is required (ipaddr or hostname)"
 
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -362,7 +364,11 @@ class ThreadWorkers(IThreadWorkerInterface):
             self.logger.info({'thread': item})
             executor = self.executor(server_info=item, timeout=self.timeout_s)
             res = executor.execute()
-            self.logger.debug(json.dumps(res, indent=2, ensure_ascii=False))
+            self.logger.debug(type(res))
+            if type(res) == dict:
+                self.logger.debug(json.dumps(res, indent=2, ensure_ascii=False))
+            else:
+                self.logger.debug(res)
             self.queue.task_done()
         self.logger.info('workers end')
 
@@ -435,16 +441,16 @@ def main(_targets: List[dict]):
 if __name__ == "__main__":
     targets = [
         {"ipaddr": "192.168.64.2", "host": "rx8headnode"},
-        # {"ipaddr": "192.168.64.4", "host": "rx8node01", "user": Config.USERNAME, "password": Config.PASSWORD},
-        # {"ipaddr": "192.168.64.2", "host": "rx8headnode", "user": Config.USERNAME, "password": Config.PASSWORD},
-        {"ipaddr": None, "host": None, "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"ipaddr": "192.168.64.4", "host": "rx8node01", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"ipaddr": "192.168.64.2", "host": "rx8headnode", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"ipaddr": None, "host": None},
         # Add more targets as needed
     ]
     q = set_queue(_targets=targets)
 
-    # main_thread_p(_q=q, workers=1)
+    main_thread_p(_q=q, workers=1)
     print('-' * 40)
-    main_thread_s(_q=q, workers=1)
+    # main_thread_s(_q=q, workers=1)
     print('-' * 40)
     # main(_targets=targets)
 
