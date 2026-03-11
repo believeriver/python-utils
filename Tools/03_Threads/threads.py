@@ -355,14 +355,6 @@ class ThreadWorkers(IThreadWorkerInterface):
      - ログにはスレッド名も含まれるので、どのスレッドがどのサーバーを処理しているかがわかるようになっています。
      - 例: ThreadWorkers(executor=FetchLSDFExecutor, _queue=q, workers=5, timeout=10, level=logging.DEBUG).run()
      - 例: ThreadWorkers(executor=FetchFileListExecutor, _queue=q, workers=5, timeout=10, level=logging.DEBUG).run()
-     - 注意: スレッド数やタイムアウトは環境や対象サーバーの数に応じて適切に設定してください。過剰なスレッド数や短すぎるタイムアウトは逆にパフォーマンスを悪化させる可能性があります。
-     - 注意: QueueにNoneを入れることでワーカーに終了を伝える方法を使用しています。ワーカーはNoneを受け取るとループを抜けて終了します。
-     - 注意: 結果の格納方法やエラーハンドリングは必要に応じて拡張してください。
-     - 注意: ログレベルをDEBUGにすると、SSHコマンドの出力も詳細にログに記録されるので、問題のトラブルシューティングに役立ちます。
-     - 注意: 実際の運用では、SSH接続の失敗やコマンドのエラーなども考慮して、適切なエラーハンドリングやリトライロジックを追加することを検討してください。
-     - 注意: スレッドワーカーはCPUバウンドな処理には適していませんが、SSHコマンドの実行のようなI/Oバウンドな処理には効果的です。
-             CPUバウンドな処理を並列化したい場合は、multiprocessingやasyncioなどの他の方法を検討してください。
-     - 注意: スレッドワーカーの実装はあくまで一例であり、実際の要件や環境に応じて適切にカスタマイズしてください。
     """
     @property
     def name(self) -> str:
@@ -390,7 +382,7 @@ class ThreadWorkers(IThreadWorkerInterface):
                 self.results.append({item.hostname: res})
 
             self.logger.debug(type(res))
-            if type(res) == dict:
+            if type(res) == list:
                 self.logger.info(json.dumps(res, indent=2, ensure_ascii=False))
             else:
                 self.logger.info(res)
@@ -477,9 +469,9 @@ if __name__ == "__main__":
     ]
     q = set_queue(_targets=targets)
 
-    main_thread_p(_q=q, workers=3)
+    # main_thread_p(_q=q, workers=3)
     print('-' * 40)
-    # main_thread_s(_q=q, workers=1)
+    main_thread_s(_q=q, workers=3)
     print('-' * 40)
     # main(_targets=targets)
 
