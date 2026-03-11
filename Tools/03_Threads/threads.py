@@ -435,8 +435,8 @@ def main(_targets: List[dict]):
 if __name__ == "__main__":
     targets = [
         {"ipaddr": "192.168.64.2", "host": "rx8headnode", "user": Config.USERNAME, "password": Config.PASSWORD},
-        # {"ipaddr": "192.168.64.4", "host": "rx8node01", "user": Config.USERNAME, "password": Config.PASSWORD},
-        # {"ipaddr": "192.168.64.2", "host": "rx8headnode", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"ipaddr": "192.168.64.4", "host": "rx8node01", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"ipaddr": "192.168.64.2", "host": "rx8headnode", "user": Config.USERNAME, "password": Config.PASSWORD},
         {"ipaddr": None, "host": None, "user": Config.USERNAME, "password": Config.PASSWORD},
         # Add more targets as needed
     ]
@@ -444,7 +444,7 @@ if __name__ == "__main__":
 
     # main_thread_p(_q=q, workers=3)
     print('-' * 40)
-    main_thread_s(_q=q, workers=1)
+    main_thread_s(_q=q, workers=3)
     # main(_targets=targets)
 
     gc.collect()
