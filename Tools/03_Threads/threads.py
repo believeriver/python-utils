@@ -431,10 +431,7 @@ def main_thread_s(_q: Queue, workers=1):
     print('*' * 40)
     print(json.dumps(worker.results, indent=2, ensure_ascii=False))
 
-def main(_targets: List[dict]):
-    # Load config (if needed)
-    # config = ConfigLoader.load(Config.CONFIG_FILE)
-
+def main(_targets: List[dict], executor_cls: Type[ISSHExecutorInterface] = FetchFileListExecutor):
     datasets = []
     for t in _targets:
         server_info = ServerInfo(
@@ -444,19 +441,14 @@ def main(_targets: List[dict]):
             password=t.get("password", Config.PASSWORD))
         datasets.append(server_info)
 
-    print(datasets)
+    print(len(datasets))
+    results = []
+    for dataset in datasets:
+        executor = executor_cls(server_info=dataset)
+        res = executor.execute()
+        results.append({dataset.hostname: res})
 
-    executor1 = FetchFileListExecutor(server_info=datasets[0],level=Config.LEVEL, timeout=Config.TIMEOUT)
-    executor2 = FetchLSDFExecutor(server_info=datasets[1],level=Config.LEVEL, timeout=Config.TIMEOUT)
-
-    results_1 = executor1.execute()
-    results_2 = executor2.execute()
-
-    print('-' * 40)
-    for res in results_1:
-        print(1, res)
-    print('-' * 40)
-    print('2', results_2)
+    print(json.dumps(results, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
@@ -467,12 +459,16 @@ if __name__ == "__main__":
         {"ipaddr": None, "host": None},
         # Add more targets as needed
     ]
-    q = set_queue(_targets=targets)
 
+    # THREADING version
+    q = set_queue(_targets=targets)
     # main_thread_p(_q=q, workers=3)
     print('-' * 40)
-    main_thread_s(_q=q, workers=3)
+    # main_thread_s(_q=q, workers=3)
     print('-' * 40)
-    # main(_targets=targets)
+
+    # NO threading version
+    main(_targets=targets, executor_cls=FetchFileListExecutor)
+    main(_targets=targets, executor_cls=FetchLSDFExecutor)
 
     gc.collect()
