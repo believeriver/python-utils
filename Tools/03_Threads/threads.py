@@ -325,7 +325,8 @@ class IThreadWorkerInterface(ABC):
         self.workers = workers
         self.timeout_s = timeout
         self.logger = setup_logger(self.name, level)
-        self.results = None
+        self.result_lock = threading.Lock()
+        self.results = []
 
     @property
     @abstractmethod
@@ -342,6 +343,27 @@ class IThreadWorkerInterface(ABC):
 
 
 class ThreadWorkers(IThreadWorkerInterface):
+    """
+    QueueからServerInfoを取り出し、SSH Executorを実行するスレッドワーカーの例。
+     - executor: ISSHExecutorInterfaceを継承したクラスを指定
+     - _queue: ServerInfoオブジェクトを入れたQueueを指定
+     - workers: スレッド数
+     - timeout: SSHコマンドのタイムアウト秒数
+     - level: ログレベル
+     - 結果はself.resultsに格納（必要に応じてロックを使用して安全にアクセス）
+     - 結果の格納方法は必要に応じて変更してください（例: self.results.append((server_info, res))など）
+     - ログにはスレッド名も含まれるので、どのスレッドがどのサーバーを処理しているかがわかるようになっています。
+     - 例: ThreadWorkers(executor=FetchLSDFExecutor, _queue=q, workers=5, timeout=10, level=logging.DEBUG).run()
+     - 例: ThreadWorkers(executor=FetchFileListExecutor, _queue=q, workers=5, timeout=10, level=logging.DEBUG).run()
+     - 注意: スレッド数やタイムアウトは環境や対象サーバーの数に応じて適切に設定してください。過剰なスレッド数や短すぎるタイムアウトは逆にパフォーマンスを悪化させる可能性があります。
+     - 注意: QueueにNoneを入れることでワーカーに終了を伝える方法を使用しています。ワーカーはNoneを受け取るとループを抜けて終了します。
+     - 注意: 結果の格納方法やエラーハンドリングは必要に応じて拡張してください。
+     - 注意: ログレベルをDEBUGにすると、SSHコマンドの出力も詳細にログに記録されるので、問題のトラブルシューティングに役立ちます。
+     - 注意: 実際の運用では、SSH接続の失敗やコマンドのエラーなども考慮して、適切なエラーハンドリングやリトライロジックを追加することを検討してください。
+     - 注意: スレッドワーカーはCPUバウンドな処理には適していませんが、SSHコマンドの実行のようなI/Oバウンドな処理には効果的です。
+             CPUバウンドな処理を並列化したい場合は、multiprocessingやasyncioなどの他の方法を検討してください。
+     - 注意: スレッドワーカーの実装はあくまで一例であり、実際の要件や環境に応じて適切にカスタマイズしてください。
+    """
     @property
     def name(self) -> str:
         return "ThreadWorkers"
@@ -364,11 +386,14 @@ class ThreadWorkers(IThreadWorkerInterface):
             self.logger.info({'thread': item})
             executor = self.executor(server_info=item, timeout=self.timeout_s)
             res = executor.execute()
+            with self.result_lock:
+                self.results.append({item.hostname: res})
+
             self.logger.debug(type(res))
             if type(res) == dict:
-                self.logger.debug(json.dumps(res, indent=2, ensure_ascii=False))
+                self.logger.info(json.dumps(res, indent=2, ensure_ascii=False))
             else:
-                self.logger.debug(res)
+                self.logger.info(res)
             self.queue.task_done()
         self.logger.info('workers end')
 
@@ -399,6 +424,8 @@ def main_thread_p(_q: Queue, workers=1):
         level=Config.LEVEL)
     worker.run()
 
+    print('*' * 40)
+    print(json.dumps(worker.results, indent=2, ensure_ascii=False))
 
 def main_thread_s(_q: Queue, workers=1):
     worker = ThreadWorkers(
@@ -409,6 +436,8 @@ def main_thread_s(_q: Queue, workers=1):
         level=Config.LEVEL)
     worker.run()
 
+    print('*' * 40)
+    print(json.dumps(worker.results, indent=2, ensure_ascii=False))
 
 def main(_targets: List[dict]):
     # Load config (if needed)
@@ -448,7 +477,7 @@ if __name__ == "__main__":
     ]
     q = set_queue(_targets=targets)
 
-    main_thread_p(_q=q, workers=1)
+    main_thread_p(_q=q, workers=3)
     print('-' * 40)
     # main_thread_s(_q=q, workers=1)
     print('-' * 40)
