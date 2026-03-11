@@ -422,7 +422,7 @@ if __name__ == "__main__":
         # Add more targets as needed
     ]
 
-    main_thread(_targets=targets, workers=1, timeout=10, level=Config.LEVEL)
+    main_thread(_targets=targets, workers=3, timeout=10, level=Config.LEVEL)
     print('-' * 40)
     # main(_targets=targets)
 
