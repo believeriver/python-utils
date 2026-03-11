@@ -267,7 +267,7 @@ class ISSHExecutorInterface(ABC):
         pass
 
     @abstractmethod
-    def execute_command(self) -> str:
+    def execute_command(self):
         pass
 
 
@@ -294,7 +294,7 @@ class FetchFileListExecutor(ISSHExecutorInterface):
     def name(self) -> str:
         return "FetchFileListExecutor"
 
-    def execute_command(self) -> str:
+    def execute_command(self):
         self.execute()
         return self.result
 
@@ -322,9 +322,12 @@ class FetchLSDFExecutor(ISSHExecutorInterface):
     def name(self) -> str:
         return "FetchFileListExecutor"
 
-    def execute_command(self) -> str:
+    def execute_command(self):
         self.execute()
-        return self.result
+        text = self.result.splitlines()
+        text_lines = [ln for ln in text if ln.strip()]
+        result = text_lines[1:2]
+        return result
 
 
 #-----------------------------
@@ -392,6 +395,7 @@ class ThreadWorkers(IThreadWorkerInterface):
             self.logger.info({'thread': item})
             executor = self.executor(server_info=item, timeout=self.timeout_s)
             res = executor.execute_command()
+
             with self.result_lock:
                 self.results.append({item.hostname: res})
 
