@@ -56,10 +56,10 @@ class ISSHClientInterface(ABC):
                  commands: List[str],
                  ipaddr=None,
                  hostname=None,
-                 username=None,
-                 password: str = None,
-                 port: int = 22,
-                 timeout: int = 30,
+                 username: str =Config.USERNAME,
+                 password: str = Config.PASSWORD,
+                 port: int = Config.PORT,
+                 timeout: int = Config.TIMEOUT,
                  level=Config.LEVEL,):
         self.log = self._set_logger(level=level)
         self.commands = commands
@@ -376,8 +376,8 @@ def set_queue(_targets: List[dict]):
         server_info = ServerInfo(
             ipaddr=t.get("ipaddr", None),
             hostname=t.get("host", None),
-            username=t.get("user", ""),
-            password=t.get("password", ""))
+            username=t.get("user", Config.USERNAME),
+            password=t.get("password", Config.PASSWORD))
         q.put(server_info)
     return q
 
@@ -413,8 +413,8 @@ def main(_targets: List[dict]):
         server_info = ServerInfo(
             ipaddr=t.get("ipaddr", None),
             hostname=t.get("host", None),
-            username=t.get("user", ""),
-            password=t.get("password", ""))
+            username=t.get("user", Config.USERNAME),
+            password=t.get("password", Config.PASSWORD))
         datasets.append(server_info)
 
     print(datasets)
@@ -434,17 +434,18 @@ def main(_targets: List[dict]):
 
 if __name__ == "__main__":
     targets = [
-        {"ipaddr": "192.168.64.2", "host": "rx8headnode", "user": Config.USERNAME, "password": Config.PASSWORD},
-        {"ipaddr": "192.168.64.4", "host": "rx8node01", "user": Config.USERNAME, "password": Config.PASSWORD},
-        {"ipaddr": "192.168.64.2", "host": "rx8headnode", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"ipaddr": "192.168.64.2", "host": "rx8headnode"},
+        # {"ipaddr": "192.168.64.4", "host": "rx8node01", "user": Config.USERNAME, "password": Config.PASSWORD},
+        # {"ipaddr": "192.168.64.2", "host": "rx8headnode", "user": Config.USERNAME, "password": Config.PASSWORD},
         {"ipaddr": None, "host": None, "user": Config.USERNAME, "password": Config.PASSWORD},
         # Add more targets as needed
     ]
     q = set_queue(_targets=targets)
 
-    # main_thread_p(_q=q, workers=3)
+    # main_thread_p(_q=q, workers=1)
     print('-' * 40)
-    main_thread_s(_q=q, workers=3)
+    main_thread_s(_q=q, workers=1)
+    print('-' * 40)
     # main(_targets=targets)
 
     gc.collect()
