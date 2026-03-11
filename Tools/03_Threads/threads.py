@@ -184,7 +184,10 @@ class ParamikoSSHClient(ISSHClientInterface):
                     # コマンド出力を収集（コマンドにより待ち時間は変わるので少し長めでもOK）
                     out_parts.append(self._recv_all(chan, max_wait_s=1.2))
             return "".join(out_parts)
-
+        except OSError as e:
+            if e.errno == 64:  # Host is down
+                return f"[HOST DOWN] {self.ssh_host}"
+            raise
         except (paramiko.SSHException, socket.gaierror, TimeoutError) as e:
             return f"[ERROR] {self.ssh_host} : {e}"
 
@@ -411,5 +414,7 @@ if __name__ == "__main__":
     ]
 
     main_thread(_targets=targets, workers=1, timeout=10, level=Config.LEVEL)
+    print('-' * 40)
+    main(_targets=targets)
 
     gc.collect()
