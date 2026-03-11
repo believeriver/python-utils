@@ -10,6 +10,7 @@ import logging
 import queue
 import threading
 import json
+import shlex
 from typing import List, Type
 from dataclasses import dataclass
 import gc
@@ -91,8 +92,11 @@ class SSHClientSubprocess(ISSHClientInterface):
         if self.ssh_host:
             user_at = "{}@{}".format(self.ssh_user, self.ssh_host) if self.ssh_user else self.ssh_host
             cmd += ["ssh", user_at]
-        cmd += self.commands
 
+        # cmd += self.commands
+        cmd += shlex.split(self.commands[0])
+
+        self.log.debug({"commands split": cmd})
         self.log.debug("Running commands: %s", " ".join(cmd))
         try:
             p = subprocess.run(
@@ -113,11 +117,18 @@ class SSHClientSubprocess(ISSHClientInterface):
                     self.log.debug("RAW|%s", ln)
                 self.log.debug("RAW_ALL_END")
         except subprocess.TimeoutExpired as e:
-            # タイムアウト時のログ
             self.log.error(f"[WARN] SSH command timed out: {e.cmd} (after {e.timeout} sec)")
-            # 必要ならここで何かクリーンアップ
-            # 例: タイムアウト専用の結果を返す・リトライキューに積むなど
             return ""  # or None, or 特別なオブジェクト
+
+        except FileNotFoundError as e:
+            # FileNotFoundError専用の処理
+            self.log.error(f"[ERROR] Command not found: {e.filename}")
+            return f"[ERROR] Command not found: {e.filename}"
+
+        except Exception as e:
+            # その他の例外
+            self.log.error(f"[ERROR] Unexpected: {e}")
+            return f"[ERROR] {e}"
 
         return raw_lines
 
@@ -268,7 +279,7 @@ class FetchFileListExecutor(ISSHExecutorInterface):
     @staticmethod
     def build_command() -> List[str]:
         return [
-            "ls -l /home --color=never",
+            "ls -l /home",
         ]
 
     @property
@@ -351,38 +362,45 @@ class ThreadWorkers(IThreadWorkerInterface):
             self.logger.info({'thread': item})
             executor = self.executor(server_info=item, timeout=self.timeout_s)
             res = executor.execute()
-            self.logger.info({'thread': res})
+            self.logger.debug(json.dumps(res, indent=2, ensure_ascii=False))
             self.queue.task_done()
         self.logger.info('workers end')
 
 
 #-----------------------------
-# Main
+# Set Queue
 #-----------------------------
-def main_thread(_targets: List[dict], workers=1, timeout=Config.TIMEOUT, level=Config.LEVEL):
+def set_queue(_targets: List[dict]):
     q = queue.Queue()
     for t in _targets:
         server_info = ServerInfo(
-            ipaddr=t.get("host", ""),
-            hostname=t.get("host", ""),
+            ipaddr=t.get("ipaddr", None),
+            hostname=t.get("host", None),
             username=t.get("user", ""),
             password=t.get("password", ""))
         q.put(server_info)
+    return q
 
-    # worker = ThreadWorkers(
-    #     executor=FetchFileListExecutor,
-    #     _queue=q,
-    #     workers=workers,
-    #     timeout=timeout,
-    #     level=level)
-    # worker.run()
-
+#-----------------------------
+# Main
+#-----------------------------
+def main_thread_p(_q: Queue, workers=1):
     worker = ThreadWorkers(
         executor=FetchLSDFExecutor,
-        _queue=q,
+        _queue=_q,
         workers=workers,
-        timeout=timeout,
-        level=level)
+        timeout=Config.TIMEOUT,
+        level=Config.LEVEL)
+    worker.run()
+
+
+def main_thread_s(_q: Queue, workers=1):
+    worker = ThreadWorkers(
+        executor=FetchFileListExecutor,
+        _queue=_q,
+        workers=workers,
+        timeout=Config.TIMEOUT,
+        level=Config.LEVEL)
     worker.run()
 
 
@@ -393,8 +411,8 @@ def main(_targets: List[dict]):
     datasets = []
     for t in _targets:
         server_info = ServerInfo(
-            ipaddr=t.get("host", ""),
-            hostname=t.get("host", ""),
+            ipaddr=t.get("ipaddr", None),
+            hostname=t.get("host", None),
             username=t.get("user", ""),
             password=t.get("password", ""))
         datasets.append(server_info)
@@ -416,14 +434,17 @@ def main(_targets: List[dict]):
 
 if __name__ == "__main__":
     targets = [
-        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
-        {"host": "192.168.64.4", "user": Config.USERNAME, "password": Config.PASSWORD},
-        {"host": "192.168.64.2", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"ipaddr": "192.168.64.2", "host": "rx8headnode", "user": Config.USERNAME, "password": Config.PASSWORD},
+        # {"ipaddr": "192.168.64.4", "host": "rx8node01", "user": Config.USERNAME, "password": Config.PASSWORD},
+        # {"ipaddr": "192.168.64.2", "host": "rx8headnode", "user": Config.USERNAME, "password": Config.PASSWORD},
+        {"ipaddr": None, "host": None, "user": Config.USERNAME, "password": Config.PASSWORD},
         # Add more targets as needed
     ]
+    q = set_queue(_targets=targets)
 
-    main_thread(_targets=targets, workers=3, timeout=10, level=Config.LEVEL)
+    # main_thread_p(_q=q, workers=3)
     print('-' * 40)
+    main_thread_s(_q=q, workers=1)
     # main(_targets=targets)
 
     gc.collect()
