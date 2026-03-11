@@ -197,6 +197,7 @@ class ParamikoSSHClient(ISSHClientInterface):
                     # コマンド出力を収集（コマンドにより待ち時間は変わるので少し長めでもOK）
                     out_parts.append(self._recv_all(chan, max_wait_s=1.2))
             return "".join(out_parts)
+            # return out_parts
 
         except (paramiko.SSHException,
                 socket.error,
@@ -233,8 +234,9 @@ class ISSHExecutorInterface(ABC):
         self.logger = setup_logger(self.name, level)
         self.commands = self.build_command()
         self.timeout = timeout
+        self.result = None
 
-    def execute(self):
+    def execute(self) -> None:
         ssh_client = self.ssh_client_cls(
             ipaddr=self.server_info.ipaddr,
             hostname=self.server_info.hostname,
@@ -243,7 +245,7 @@ class ISSHExecutorInterface(ABC):
             commands=self.commands,
             timeout=self.timeout,
         )
-        return ssh_client.execute_command()
+        self.result = ssh_client.execute_command()
 
     @staticmethod
     @abstractmethod
@@ -262,6 +264,10 @@ class ISSHExecutorInterface(ABC):
     @property
     @abstractmethod
     def name(self) -> str:
+        pass
+
+    @abstractmethod
+    def execute_command(self) -> str:
         pass
 
 
@@ -288,6 +294,10 @@ class FetchFileListExecutor(ISSHExecutorInterface):
     def name(self) -> str:
         return "FetchFileListExecutor"
 
+    def execute_command(self) -> str:
+        self.execute()
+        return self.result
+
 
 class FetchLSDFExecutor(ISSHExecutorInterface):
     """
@@ -311,6 +321,10 @@ class FetchLSDFExecutor(ISSHExecutorInterface):
     @property
     def name(self) -> str:
         return "FetchFileListExecutor"
+
+    def execute_command(self) -> str:
+        self.execute()
+        return self.result
 
 
 #-----------------------------
@@ -377,7 +391,7 @@ class ThreadWorkers(IThreadWorkerInterface):
                 break
             self.logger.info({'thread': item})
             executor = self.executor(server_info=item, timeout=self.timeout_s)
-            res = executor.execute()
+            res = executor.execute_command()
             with self.result_lock:
                 self.results.append({item.hostname: res})
 
@@ -445,7 +459,7 @@ def main(_targets: List[dict], executor_cls: Type[ISSHExecutorInterface] = Fetch
     results = []
     for dataset in datasets:
         executor = executor_cls(server_info=dataset)
-        res = executor.execute()
+        res = executor.execute_command()
         results.append({dataset.hostname: res})
 
     print(json.dumps(results, indent=2, ensure_ascii=False))
@@ -462,13 +476,13 @@ if __name__ == "__main__":
 
     # THREADING version
     q = set_queue(_targets=targets)
-    # main_thread_p(_q=q, workers=3)
+    main_thread_p(_q=q, workers=3)
     print('-' * 40)
     # main_thread_s(_q=q, workers=3)
     print('-' * 40)
 
     # NO threading version
-    main(_targets=targets, executor_cls=FetchFileListExecutor)
-    main(_targets=targets, executor_cls=FetchLSDFExecutor)
+    # main(_targets=targets, executor_cls=FetchFileListExecutor)
+    # main(_targets=targets, executor_cls=FetchLSDFExecutor)
 
     gc.collect()
