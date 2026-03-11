@@ -184,11 +184,10 @@ class ParamikoSSHClient(ISSHClientInterface):
                     # コマンド出力を収集（コマンドにより待ち時間は変わるので少し長めでもOK）
                     out_parts.append(self._recv_all(chan, max_wait_s=1.2))
             return "".join(out_parts)
-        except OSError as e:
-            if e.errno == 64:  # Host is down
-                return f"[HOST DOWN] {self.ssh_host}"
-            raise
-        except (paramiko.SSHException, socket.gaierror, TimeoutError) as e:
+
+        except (paramiko.SSHException,
+                socket.error,
+                TimeoutError) as e:
             return f"[ERROR] {self.ssh_host} : {e}"
 
         finally:
@@ -313,6 +312,7 @@ class IThreadWorkerInterface(ABC):
         self.workers = workers
         self.timeout_s = timeout
         self.logger = setup_logger(self.name, level)
+        self.results = None
 
     @property
     @abstractmethod
@@ -350,7 +350,8 @@ class ThreadWorkers(IThreadWorkerInterface):
                 break
             self.logger.info({'thread': item})
             executor = self.executor(server_info=item, timeout=self.timeout_s)
-            executor.execute()
+            res = executor.execute()
+            self.logger.info({'thread': res})
             self.queue.task_done()
         self.logger.info('workers end')
 
@@ -368,8 +369,16 @@ def main_thread(_targets: List[dict], workers=1, timeout=Config.TIMEOUT, level=C
             password=t.get("password", ""))
         q.put(server_info)
 
+    # worker = ThreadWorkers(
+    #     executor=FetchFileListExecutor,
+    #     _queue=q,
+    #     workers=workers,
+    #     timeout=timeout,
+    #     level=level)
+    # worker.run()
+
     worker = ThreadWorkers(
-        executor=FetchFileListExecutor,
+        executor=FetchLSDFExecutor,
         _queue=q,
         workers=workers,
         timeout=timeout,
@@ -415,6 +424,6 @@ if __name__ == "__main__":
 
     main_thread(_targets=targets, workers=1, timeout=10, level=Config.LEVEL)
     print('-' * 40)
-    main(_targets=targets)
+    # main(_targets=targets)
 
     gc.collect()
