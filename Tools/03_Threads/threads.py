@@ -235,6 +235,34 @@ class ISSHExecutorInterface(ABC):
         self.commands = self.build_command()
         self.timeout = timeout
         self.result = None
+        self.out_filename = self.set_out_filename(server_info.hostname, Config.OUTPUT_DIR)
+
+    @staticmethod
+    def set_out_filename(filename: str, out_dir) -> str:
+        now_date = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f"{filename}_{now_date}.txt"
+        if out_dir is None:
+            return filename
+        else:
+            filepath = os.path.join(out_dir, filename)
+            return filepath
+
+    def write_log(self):
+        """
+        output command results
+        :return:
+        """
+        if self.result is None:
+            self.execute_command()
+
+        self.logger.info(f'write to {self.out_filename}')
+        with open(self.out_filename, mode="w") as f:
+            for text in self.result:
+                text = str(text).lstrip("b'")
+                text = str(text).lstrip("'")
+                f.write(text + "\n")
+                self.logger.debug(text)
+        self.logger.info('end to write logs')
 
     def execute(self) -> None:
         ssh_client = self.ssh_client_cls(
