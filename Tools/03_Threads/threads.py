@@ -117,8 +117,9 @@ class SSHClientSubprocess(ISSHClientInterface):
                     self.log.debug("RAW|%s", ln)
                 self.log.debug("RAW_ALL_END")
         except subprocess.TimeoutExpired as e:
-            self.log.error(f"[WARN] SSH command timed out: {e.cmd} (after {e.timeout} sec)")
-            return ""  # or None, or 特別なオブジェクト
+            message = f"[WARN] SSH command timed out: {e.cmd} (after {e.timeout} sec)"
+            self.log.error(message)
+            return [message]  # or None, or 特別なオブジェクト
 
         except FileNotFoundError as e:
             # FileNotFoundError専用の処理
@@ -324,6 +325,7 @@ class FetchFileListExecutor(ISSHExecutorInterface):
 
     def execute_command(self):
         self.execute()
+        self.write_log()
         return self.result
 
 
@@ -352,7 +354,10 @@ class FetchLSDFExecutor(ISSHExecutorInterface):
 
     def execute_command(self):
         self.execute()
-        text = self.result.splitlines()
+        self.result = self.result.split("\n")
+        self.write_log()
+        # text = self.result.splitlines()
+        text = self.result
         text_lines = [ln for ln in text if ln.strip()]
         result = text_lines[1:2]
         return result
@@ -508,9 +513,9 @@ if __name__ == "__main__":
 
     # THREADING version
     q = set_queue(_targets=targets)
-    main_thread_p(_q=q, workers=3)
+    # main_thread_p(_q=q, workers=3)
     print('-' * 40)
-    # main_thread_s(_q=q, workers=3)
+    main_thread_s(_q=q, workers=3)
     print('-' * 40)
 
     # NO threading version
