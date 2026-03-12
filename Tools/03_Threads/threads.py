@@ -124,12 +124,12 @@ class SSHClientSubprocess(ISSHClientInterface):
         except FileNotFoundError as e:
             # FileNotFoundError専用の処理
             self.log.error(f"[ERROR] Command not found: {e.filename}")
-            return f"[ERROR] Command not found: {e.filename}"
+            return [f"[ERROR] Command not found: {e.filename}"]
 
         except Exception as e:
             # その他の例外
             self.log.error(f"[ERROR] Unexpected: {e}")
-            return f"[ERROR] {e}"
+            return [f"[ERROR] {e}"]
 
         return raw_lines
 
@@ -163,7 +163,7 @@ class ParamikoSSHClient(ISSHClientInterface):
 
         return data.decode("utf-8", errors="replace")
 
-    def execute_command(self) -> str:
+    def execute_command(self):
         self.log.debug("execute command: %s", self.commands)
         if self.ssh_host is None:
             return "[ERROR] SSH host is required (ipaddr or hostname)"
@@ -513,9 +513,9 @@ if __name__ == "__main__":
 
     # THREADING version
     q = set_queue(_targets=targets)
-    # main_thread_p(_q=q, workers=3)
+    main_thread_p(_q=q, workers=3)
     print('-' * 40)
-    main_thread_s(_q=q, workers=3)
+    # main_thread_s(_q=q, workers=3)
     print('-' * 40)
 
     # NO threading version
