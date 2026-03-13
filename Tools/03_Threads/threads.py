@@ -455,6 +455,41 @@ def set_queue(_targets: List[dict]):
         q.put(server_info)
     return q
 
+
+# -----------------------------
+# Utils
+# -----------------------------
+class SwitchListDataset(object):
+    """
+    fetch ip address and hostname list from config life.
+    """
+    def __init__(self, targets_file :str):
+        self.targets_file = targets_file
+        self.targets_list = []
+        self.import_config()
+
+    def import_config(self):
+        with open(self.targets_file, 'r', encoding="utf-8") as f:
+            headers = []
+            lines = f.readlines()
+            for cnt, line in enumerate(lines):
+                device = {}
+                line = line.rstrip("\n")
+                items = line.split(",")
+                if cnt == 0:
+                    for item in items:
+                        headers.append(item)
+                else:
+                    for idx, item in enumerate(items):
+                        device[headers[idx]] = item
+                if not line:
+                    continue
+                if device != {}:
+                    self.targets_list.append(device)
+
+    def __str__(self):
+        return json.dumps(self.targets_list, indent=2, ensure_ascii=False)
+
 #-----------------------------
 # Main
 #-----------------------------
