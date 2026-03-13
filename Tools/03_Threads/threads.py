@@ -449,8 +449,8 @@ def set_queue(_targets: List[dict]):
     for t in _targets:
         server_info = ServerInfo(
             ipaddr=t.get("ipaddr", None),
-            hostname=t.get("host", None),
-            username=t.get("user", Config.USERNAME),
+            hostname=t.get("hostname", None),
+            username=t.get("username", Config.USERNAME),
             password=t.get("password", Config.PASSWORD))
         q.put(server_info)
     return q
@@ -462,9 +462,15 @@ def set_queue(_targets: List[dict]):
 class SwitchListDataset(object):
     """
     fetch ip address and hostname list from config life.
+        - config.iniの内容を読み込んで、IPアドレスとホスト名のリストを作成する例。
+        - config.iniは以下のような形式を想定（1行目がヘッダー、2行目以降がデータ）：
+        ipaddr,host,user,password
+    folder: settings
+    file: config.ini
     """
-    def __init__(self, targets_file :str):
-        self.targets_file = targets_file
+    def __init__(self):
+        cur_dir = os.getcwd()
+        self.targets_file = os.path.join(cur_dir, Config.SETTINGS_DIR, Config.CONFIG_FILE)
         self.targets_list = []
         self.import_config()
 
@@ -522,8 +528,8 @@ def main(_targets: List[dict], executor_cls: Type[ISSHExecutorInterface] = Fetch
     for t in _targets:
         server_info = ServerInfo(
             ipaddr=t.get("ipaddr", None),
-            hostname=t.get("host", None),
-            username=t.get("user", Config.USERNAME),
+            hostname=t.get("hostname", None),
+            username=t.get("username", Config.USERNAME),
             password=t.get("password", Config.PASSWORD))
         datasets.append(server_info)
 
@@ -537,20 +543,27 @@ def main(_targets: List[dict], executor_cls: Type[ISSHExecutorInterface] = Fetch
     print(json.dumps(results, indent=2, ensure_ascii=False))
 
 
-if __name__ == "__main__":
-    targets = [
-        {"ipaddr": "192.168.64.2", "host": "rx8headnode"},
-        {"ipaddr": "192.168.64.4", "host": "rx8node01", "user": Config.USERNAME, "password": Config.PASSWORD},
-        {"ipaddr": "192.168.64.2", "host": "rx8headnode", "user": Config.USERNAME, "password": Config.PASSWORD},
+def sample_dataset() -> List[dict]:
+    return [
+        {"ipaddr": "192.168.64.2", "hostname": "rx8headnode"},
+        {"ipaddr": "192.168.64.4", "hostname": "rx8node01", "username": Config.USERNAME, "password": Config.PASSWORD},
+        {"ipaddr": "192.168.64.2", "hostname": "rx8headnode", "username": Config.USERNAME, "password": Config.PASSWORD},
         {"ipaddr": None, "host": None},
         # Add more targets as needed
     ]
 
+if __name__ == "__main__":
+    # dataset = SwitchListDataset()
+    # print(dataset)
+    # targets = dataset.targets_list
+
+    targets = sample_dataset()
+
     # THREADING version
     q = set_queue(_targets=targets)
-    main_thread_p(_q=q, workers=3)
+    # main_thread_p(_q=q, workers=3)
     print('-' * 40)
-    # main_thread_s(_q=q, workers=3)
+    main_thread_s(_q=q, workers=3)
     print('-' * 40)
 
     # NO threading version
