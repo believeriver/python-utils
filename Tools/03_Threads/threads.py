@@ -441,21 +441,6 @@ class ThreadWorkers(IThreadWorkerInterface):
         self.logger.info('workers end')
 
 
-#-----------------------------
-# Set Queue
-#-----------------------------
-def set_queue(_targets: List[dict]):
-    q = queue.Queue()
-    for t in _targets:
-        server_info = ServerInfo(
-            ipaddr=t.get("ipaddr", None),
-            hostname=t.get("hostname", None),
-            username=t.get("username", Config.USERNAME),
-            password=t.get("password", Config.PASSWORD))
-        q.put(server_info)
-    return q
-
-
 # -----------------------------
 # Utils
 # -----------------------------
@@ -487,6 +472,8 @@ class SwitchListDataset(object):
                         headers.append(item)
                 else:
                     for idx, item in enumerate(items):
+                        if item == "":
+                            item = None
                         device[headers[idx]] = item
                 if not line:
                     continue
@@ -495,6 +482,22 @@ class SwitchListDataset(object):
 
     def __str__(self):
         return json.dumps(self.targets_list, indent=2, ensure_ascii=False)
+
+
+#-----------------------------
+# Set Queue
+#-----------------------------
+def set_queue(_targets: List[dict]):
+    q = queue.Queue()
+    for t in _targets:
+        server_info = ServerInfo(
+            ipaddr=t.get("ipaddr", None),
+            hostname=t.get("hostname", None),
+            username=t.get("username", Config.USERNAME),
+            password=t.get("password", Config.PASSWORD))
+        q.put(server_info)
+    return q
+
 
 #-----------------------------
 # Main
@@ -553,11 +556,11 @@ def sample_dataset() -> List[dict]:
     ]
 
 if __name__ == "__main__":
-    # dataset = SwitchListDataset()
-    # print(dataset)
-    # targets = dataset.targets_list
+    dataset = SwitchListDataset()
+    print(dataset)
+    targets = dataset.targets_list
 
-    targets = sample_dataset()
+    # targets = sample_dataset()
 
     # THREADING version
     q = set_queue(_targets=targets)
