@@ -175,10 +175,20 @@ def main_threads(_q: Queue,
     worker.run()
 
     print('*' * 40)
-    print("[INFO]: Results:")
+    print("[INFO]: Results Summary")
     # print(json.dumps(worker.results, indent=2, ensure_ascii=False))
+
+    width = 12
     for res in worker.results:
-        print(res)
+        for hostname, lines in res.items():
+            hostname_str = str(hostname) if hostname is not None else "Unknown Host"
+            # print(f"--- results for {hostname} ---")
+            if lines == [] or lines is None:
+                print(f"{hostname_str:<{width}}: No data or error occurred.")
+                continue
+            for line in lines:
+                msg = line.replace("\\r", "").replace("\\n", "\n")
+                print(f"{hostname_str:<{width}}: {msg}")
 
 
 # -----------------------------
@@ -226,9 +236,6 @@ def main(argv):
     dataset = SwitchListDataset()
     main_logger.debug(dataset)
     targets = dataset.targets_list
-
-    # targets from sample dataset (for testing without config.ini)
-    # targets = sample_dataset()
 
     target, log_level, debug, info, threaded = parse_args(argv)
     executor = None
