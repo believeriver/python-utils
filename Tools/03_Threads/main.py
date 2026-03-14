@@ -78,7 +78,7 @@ class ThreadWorkers(IThreadWorkerInterface):
         [t.join() for t in ts]
 
     def worker(self):
-        self.logger.info('workers start')
+        self.logger.debug('workers start')
         while True:
             item = self.queue.get()
             if item is None:
@@ -92,11 +92,11 @@ class ThreadWorkers(IThreadWorkerInterface):
 
             self.logger.debug(type(res))
             if type(res) == list:
-                self.logger.info(json.dumps(res, indent=2, ensure_ascii=False))
+                self.logger.debug(json.dumps(res, indent=2, ensure_ascii=False))
             else:
-                self.logger.info(res)
+                self.logger.debug(res)
             self.queue.task_done()
-        self.logger.info('workers end')
+        self.logger.debug('workers end')
 
 
 # -----------------------------
