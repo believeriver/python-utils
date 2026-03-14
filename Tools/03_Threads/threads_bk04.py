@@ -502,11 +502,9 @@ def set_queue(_targets: List[dict]):
 #-----------------------------
 # Main
 #-----------------------------
-def main_threads(_q: Queue,
-                 workers=1,
-                 executor_cls: Type[ISSHExecutorInterface] = FetchFileListExecutor):
+def main_thread_p(_q: Queue, workers=1):
     worker = ThreadWorkers(
-        executor=executor_cls,
+        executor=FetchLSDFExecutor,
         _queue=_q,
         workers=workers,
         timeout=Config.TIMEOUT,
@@ -516,9 +514,19 @@ def main_threads(_q: Queue,
     print('*' * 40)
     print(json.dumps(worker.results, indent=2, ensure_ascii=False))
 
+def main_thread_s(_q: Queue, workers=1):
+    worker = ThreadWorkers(
+        executor=FetchFileListExecutor,
+        _queue=_q,
+        workers=workers,
+        timeout=Config.TIMEOUT,
+        level=Config.LEVEL)
+    worker.run()
 
-def main_single(_targets: List[dict],
-                executor_cls: Type[ISSHExecutorInterface] = FetchFileListExecutor):
+    print('*' * 40)
+    print(json.dumps(worker.results, indent=2, ensure_ascii=False))
+
+def main(_targets: List[dict], executor_cls: Type[ISSHExecutorInterface] = FetchFileListExecutor):
     datasets = []
     for t in _targets:
         server_info = ServerInfo(
@@ -538,9 +546,6 @@ def main_single(_targets: List[dict],
     print(json.dumps(results, indent=2, ensure_ascii=False))
 
 
-#-----------------------------
-# Sample Dataset(for testing without config.ini)
-#-----------------------------
 def sample_dataset() -> List[dict]:
     return [
         {"ipaddr": "192.168.64.2", "hostname": "rx8headnode"},
@@ -550,72 +555,22 @@ def sample_dataset() -> List[dict]:
         # Add more targets as needed
     ]
 
-
-# -----------------------------
-# CLI / main
-# -----------------------------
-def parse_args(argv):
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
-    log_level = logging.WARNING
-    debug = False
-    info = False
-    threaded = False
-
-    print(f"[INFO] {today}")
-    if len(argv) == 0:
-        print("Please input option (number, log level)")
-        exit(1)
-
-    target = argv[0]
-    i = 1
-    while i < len(argv):
-        a = argv[i]
-        if a == "--debug":
-            log_level = logging.DEBUG
-            debug = True
-            i += 1
-            continue
-        if a == "--info":
-            log_level = logging.INFO
-            info = True
-            i += 1
-            continue
-        if a == "--threaded":
-            threaded = True
-        i += 1
-    return int(target), log_level, debug, info, threaded
-
-
-def main(argv):
-    # targets from config.ini
-    main_logger = setup_logger("main", Config.LEVEL)
+if __name__ == "__main__":
     dataset = SwitchListDataset()
-    main_logger.debug(dataset)
+    print(dataset)
     targets = dataset.targets_list
 
-    # targets from sample dataset (for testing without config.ini)
     # targets = sample_dataset()
 
-    target, log_level, debug, info, threaded = parse_args(argv)
-    executor = None
-    if target == 1:
-        executor = FetchFileListExecutor
-    if target == 2:
-        executor = FetchLSDFExecutor
+    # THREADING version
+    q = set_queue(_targets=targets)
+    # main_thread_p(_q=q, workers=3)
+    print('-' * 40)
+    main_thread_s(_q=q, workers=3)
+    print('-' * 40)
 
-    if executor is None:
-        exit(1)
-    else:
-        if threaded:
-            # THREADING version
-            q = set_queue(_targets=targets)
-            main_threads(_q=q, workers=3, executor_cls=executor)
-        else:
-            # NO threading version
-            main_single(_targets=targets, executor_cls=executor)
-
-
-if __name__ == "__main__":
-    main(sys.argv[1:])
+    # NO threading version
+    # main(_targets=targets, executor_cls=FetchFileListExecutor)
+    # main(_targets=targets, executor_cls=FetchLSDFExecutor)
 
     gc.collect()
