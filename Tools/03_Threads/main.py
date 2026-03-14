@@ -188,7 +188,11 @@ def parse_args(argv):
 
     print(f"[INFO] {today}")
     if len(argv) == 0:
-        print("Please input option (number, log level)")
+        print("[ERROR]Please input option (number, log level)")
+        print("[INFO]Example: python main.py 1 -> Check Config.EXECUTOR_CLS")
+        print("[INFO]Example: python main.py 2 -> Run SSH Executor")
+        print("[INFO]Example: python main.py 2 -t -> Run SSH Executor with threading")
+        print("[INFO]Example: python main.py 2 --debug -> Run SSH Executor with DEBUG log level")
         exit(1)
 
     target = argv[0]
@@ -224,7 +228,8 @@ def main(argv):
     target, log_level, debug, info, threaded = parse_args(argv)
     executor = None
     if target == 1:
-        executor = FetchFileListExecutor
+        print("[INFO] Checking EXECUTOR_CLS...")
+        print(f"[INFO] EXECUTOR_CLS: {Config.EXECUTOR_CLS}")
     if target == 2:
         # executor = FetchLSDFExecutor
         executor_name = Config.EXECUTOR_CLS
