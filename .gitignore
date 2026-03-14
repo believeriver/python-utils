@@ -23,4 +23,4 @@ Tools/02_ssh_paramiko/out
 Tools/02_ssh_paramiko/archive
 Tools/03_Threads/archive
 Tools/03_Threads/out
-
+Tools/03_Threads/__pycache__/
