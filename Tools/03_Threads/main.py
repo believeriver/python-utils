@@ -200,6 +200,7 @@ def main(argv):
         reporter = getattr(module, reporter_cls, None)
 
     if executor is None:
+        print("[ERROR]Please input option (number, log level): number 1 or 2")
         exit(1)
 
     if threaded:
