@@ -19,9 +19,11 @@ class Config(object):
     OUTPUT_DIR = "out"
     LEVEL = logging.WARN
 
-    EXECUTOR_CLS = "FetchLSDFExecutor"
+    # EXECUTOR_CLS = "FetchLSDFExecutor"
+    EXECUTOR_CLS = "FetchFileListExecutor"
+
     REPORTER_CLS = "ReporterSample"
-    # EXECUTOR_CLS = "FetchFileListExecutor"
+
     MAX_WORKERS = 3
 
 # -----------------------------
