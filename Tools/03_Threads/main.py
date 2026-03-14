@@ -7,6 +7,7 @@ import queue
 import threading
 import json
 from typing import List, Type
+from pprint import pformat
 import gc
 
 from rpds.rpds import Queue
@@ -88,6 +89,7 @@ class ThreadWorkers(IThreadWorkerInterface):
             res = executor.execute_command()
             messages = {item.hostname: res}
             self.logger.info(f"done: {messages}")
+            # self.logger.info(f"done:\n{pformat(messages, indent=2)}")
 
             with self.result_lock:
                 self.results.append({item.hostname: res})
@@ -144,6 +146,25 @@ class SwitchListDataset(object):
         return json.dumps(self.targets_list, indent=2, ensure_ascii=False)
 
 
+def print_results(results: List[dict]) -> None:
+    print('*' * 40)
+    print("[INFO]: Results Summary")
+    # print(json.dumps(worker.results, indent=2, ensure_ascii=False))
+    width = 12
+    for res in results:
+        for hostname, lines in res.items():
+            hostname_str = str(hostname) if hostname is not None else "Unknown Host"
+            # print(f"--- results for {hostname} ---")
+            if lines == [] or lines is None:
+                # print(f"{hostname_str:<{width}}, No data or error occurred.")
+                print(f"{hostname_str}, No data or error occurred.")
+                continue
+            for line in lines:
+                msg = line.replace("\\r", "").replace("\\n", "\n")
+                # print(f"{hostname_str:<{width}}, {msg}")
+                print(f"{hostname_str}, {msg}")
+        print("-" * 40)
+
 #-----------------------------
 # Set Queue
 #-----------------------------
@@ -174,21 +195,7 @@ def main_threads(_q: Queue,
         level=level)
     worker.run()
 
-    print('*' * 40)
-    print("[INFO]: Results Summary")
-    # print(json.dumps(worker.results, indent=2, ensure_ascii=False))
-
-    width = 12
-    for res in worker.results:
-        for hostname, lines in res.items():
-            hostname_str = str(hostname) if hostname is not None else "Unknown Host"
-            # print(f"--- results for {hostname} ---")
-            if lines == [] or lines is None:
-                print(f"{hostname_str:<{width}}: No data or error occurred.")
-                continue
-            for line in lines:
-                msg = line.replace("\\r", "").replace("\\n", "\n")
-                print(f"{hostname_str:<{width}}: {msg}")
+    print_results(worker.results)
 
 
 # -----------------------------
