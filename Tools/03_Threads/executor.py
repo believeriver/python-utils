@@ -222,7 +222,7 @@ class ISSHExecutorInterface(ABC):
         if self.result is None:
             self.execute_command()
 
-        self.logger.info(f'write to {self.out_filename}')
+        self.logger.debug(f'write to {self.out_filename}')
         with open(self.out_filename, mode="w") as f:
             for text in self.result:
                 text = str(text).lstrip("b'")
