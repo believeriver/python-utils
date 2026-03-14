@@ -173,7 +173,10 @@ def main_threads(_q: Queue,
     worker.run()
 
     print('*' * 40)
-    print(json.dumps(worker.results, indent=2, ensure_ascii=False))
+    print("[INFO]: Results:")
+    # print(json.dumps(worker.results, indent=2, ensure_ascii=False))
+    for res in worker.results:
+        print(res)
 
 
 # -----------------------------
