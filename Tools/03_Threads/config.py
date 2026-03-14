@@ -1,5 +1,10 @@
 import logging
 
+# from executor import (
+#     FetchFileListExecutor,
+#     FetchLSDFExecutor,
+# )
+
 # -----------------------------
 #Config
 # -----------------------------
@@ -14,6 +19,8 @@ class Config(object):
     OUTPUT_DIR = "out"
     LEVEL = logging.WARN
 
+    EXECUTOR_CLS = "FetchLSDFExecutor"
+    MAX_WORKERS = 3
 
 # -----------------------------
 # Logger

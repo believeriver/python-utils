@@ -16,7 +16,9 @@ from executor import (
     ISSHExecutorInterface,
     FetchFileListExecutor,
     FetchLSDFExecutor,
-    ServerInfo,)
+    ServerInfo,
+    main_single,
+)
 
 
 #-----------------------------
@@ -174,41 +176,6 @@ def main_threads(_q: Queue,
     print(json.dumps(worker.results, indent=2, ensure_ascii=False))
 
 
-def main_single(_targets: List[dict],
-                executor_cls: Type[ISSHExecutorInterface] = FetchFileListExecutor,
-                level=Config.LEVEL):
-    datasets = []
-    for t in _targets:
-        server_info = ServerInfo(
-            ipaddr=t.get("ipaddr", None),
-            hostname=t.get("hostname", None),
-            username=t.get("username", Config.USERNAME),
-            password=t.get("password", Config.PASSWORD))
-        datasets.append(server_info)
-
-    print(len(datasets))
-    results = []
-    for dataset in datasets:
-        executor = executor_cls(server_info=dataset, level=level)
-        res = executor.execute_command()
-        results.append({dataset.hostname: res})
-
-    print(json.dumps(results, indent=2, ensure_ascii=False))
-
-
-#-----------------------------
-# Sample Dataset(for testing without config.ini)
-#-----------------------------
-def sample_dataset() -> List[dict]:
-    return [
-        {"ipaddr": "192.168.64.2", "hostname": "rx8headnode"},
-        {"ipaddr": "192.168.64.4", "hostname": "rx8node01", "username": Config.USERNAME, "password": Config.PASSWORD},
-        {"ipaddr": "192.168.64.2", "hostname": "rx8headnode", "username": Config.USERNAME, "password": Config.PASSWORD},
-        {"ipaddr": None, "host": None},
-        # Add more targets as needed
-    ]
-
-
 # -----------------------------
 # CLI / main
 # -----------------------------
@@ -259,7 +226,10 @@ def main(argv):
     if target == 1:
         executor = FetchFileListExecutor
     if target == 2:
-        executor = FetchLSDFExecutor
+        # executor = FetchLSDFExecutor
+        executor_name = Config.EXECUTOR_CLS
+        module = sys.modules[__name__]
+        executor = getattr(module, executor_name, None)
 
     if executor is None:
         exit(1)
@@ -267,7 +237,7 @@ def main(argv):
     if threaded:
         # THREADING version
         q = set_queue(_targets=targets)
-        main_threads(_q=q, workers=3, executor_cls=executor, level=log_level)
+        main_threads(_q=q, workers=Config.MAX_WORKERS, executor_cls=executor, level=log_level)
     else:
         # NO threading version
         main_single(_targets=targets, executor_cls=executor, level=log_level)
