@@ -605,14 +605,14 @@ def main(argv):
 
     if executor is None:
         exit(1)
-
-    if threaded:
-        # THREADING version
-        q = set_queue(_targets=targets)
-        main_threads(_q=q, workers=3, executor_cls=executor)
     else:
-        # NO threading version
-        main_single(_targets=targets, executor_cls=executor)
+        if threaded:
+            # THREADING version
+            q = set_queue(_targets=targets)
+            main_threads(_q=q, workers=3, executor_cls=executor)
+        else:
+            # NO threading version
+            main_single(_targets=targets, executor_cls=executor)
 
 
 if __name__ == "__main__":
