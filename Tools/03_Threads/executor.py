@@ -238,6 +238,7 @@ class ISSHExecutorInterface(ABC):
             password=self.server_info.password,
             commands=self.commands,
             timeout=self.timeout,
+            level=self.logger.level,
         )
         self.result = ssh_client.execute_command()
 

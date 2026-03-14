@@ -12,7 +12,7 @@ import gc
 from rpds.rpds import Queue
 
 from config import Config, setup_logger
-from concrete_executor import (
+from executor import (
     ISSHExecutorInterface,
     FetchFileListExecutor,
     FetchLSDFExecutor,
@@ -82,7 +82,7 @@ class ThreadWorkers(IThreadWorkerInterface):
             if item is None:
                 break
             self.logger.info({'thread': item})
-            executor = self.executor(server_info=item, timeout=self.timeout_s)
+            executor = self.executor(server_info=item, timeout=self.timeout_s, level=self.logger.level)
             res = executor.execute_command()
 
             with self.result_lock:
@@ -160,13 +160,14 @@ def set_queue(_targets: List[dict]):
 #-----------------------------
 def main_threads(_q: Queue,
                  workers=1,
-                 executor_cls: Type[ISSHExecutorInterface] = FetchFileListExecutor):
+                 executor_cls: Type[ISSHExecutorInterface] = FetchFileListExecutor,
+                 level=Config.LEVEL):
     worker = ThreadWorkers(
         executor=executor_cls,
         _queue=_q,
         workers=workers,
         timeout=Config.TIMEOUT,
-        level=Config.LEVEL)
+        level=level)
     worker.run()
 
     print('*' * 40)
@@ -174,7 +175,8 @@ def main_threads(_q: Queue,
 
 
 def main_single(_targets: List[dict],
-                executor_cls: Type[ISSHExecutorInterface] = FetchFileListExecutor):
+                executor_cls: Type[ISSHExecutorInterface] = FetchFileListExecutor,
+                level=Config.LEVEL):
     datasets = []
     for t in _targets:
         server_info = ServerInfo(
@@ -187,7 +189,7 @@ def main_single(_targets: List[dict],
     print(len(datasets))
     results = []
     for dataset in datasets:
-        executor = executor_cls(server_info=dataset)
+        executor = executor_cls(server_info=dataset, level=level)
         res = executor.execute_command()
         results.append({dataset.hostname: res})
 
@@ -212,7 +214,7 @@ def sample_dataset() -> List[dict]:
 # -----------------------------
 def parse_args(argv):
     today = datetime.datetime.now().strftime("%Y-%m-%d")
-    log_level = logging.WARNING
+    log_level = Config.LEVEL
     debug = False
     info = False
     threaded = False
@@ -265,10 +267,10 @@ def main(argv):
     if threaded:
         # THREADING version
         q = set_queue(_targets=targets)
-        main_threads(_q=q, workers=3, executor_cls=executor)
+        main_threads(_q=q, workers=3, executor_cls=executor, level=log_level)
     else:
         # NO threading version
-        main_single(_targets=targets, executor_cls=executor)
+        main_single(_targets=targets, executor_cls=executor, level=log_level)
 
 
 if __name__ == "__main__":

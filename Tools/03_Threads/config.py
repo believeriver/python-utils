@@ -12,8 +12,7 @@ class Config(object):
     CONFIG_FILE = "config.ini"
     SETTINGS_DIR = "settings"
     OUTPUT_DIR = "out"
-    LEVEL = logging.DEBUG
-    # LEVEL = logging.INFO
+    LEVEL = logging.WARN
 
 
 # -----------------------------
