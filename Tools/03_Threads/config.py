@@ -20,6 +20,7 @@ class Config(object):
     LEVEL = logging.WARN
 
     EXECUTOR_CLS = "FetchLSDFExecutor"
+    REPORTER_CLS = "ReporterSample"
     # EXECUTOR_CLS = "FetchFileListExecutor"
     MAX_WORKERS = 3
 

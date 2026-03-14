@@ -146,24 +146,32 @@ class SwitchListDataset(object):
         return json.dumps(self.targets_list, indent=2, ensure_ascii=False)
 
 
-def print_results(results: List[dict]) -> None:
-    print('*' * 40)
-    print("[INFO]: Results Summary")
-    # print(json.dumps(worker.results, indent=2, ensure_ascii=False))
-    width = 12
-    for res in results:
-        for hostname, lines in res.items():
-            hostname_str = str(hostname) if hostname is not None else "Unknown Host"
-            # print(f"--- results for {hostname} ---")
-            if lines == [] or lines is None:
-                # print(f"{hostname_str:<{width}}, No data or error occurred.")
-                print(f"{hostname_str}, No data or error occurred.")
-                continue
-            for line in lines:
-                msg = line.replace("\\r", "").replace("\\n", "\n")
-                # print(f"{hostname_str:<{width}}, {msg}")
-                print(f"{hostname_str}, {msg}")
-        print("-" * 40)
+class IReporterInterface(ABC):
+    @staticmethod
+    @abstractmethod
+    def print_results(results: List[dict]) -> None:
+        pass
+
+class ReporterSample(IReporterInterface):
+    @staticmethod
+    def print_results(results: List[dict]) -> None:
+        print('*' * 40)
+        print("[INFO]: Results Summary")
+        # print(json.dumps(worker.results, indent=2, ensure_ascii=False))
+        width = 12
+        for res in results:
+            for hostname, lines in res.items():
+                hostname_str = str(hostname) if hostname is not None else "Unknown Host"
+                # print(f"--- results for {hostname} ---")
+                if lines == [] or lines is None:
+                    # print(f"{hostname_str:<{width}}, No data or error occurred.")
+                    print(f"{hostname_str}, No data or error occurred.")
+                    continue
+                for line in lines:
+                    msg = line.replace("\\r", "").replace("\\n", "\n")
+                    # print(f"{hostname_str:<{width}}, {msg}")
+                    print(f"{hostname_str}, {msg}")
+            print("-" * 40)
 
 #-----------------------------
 # Set Queue
@@ -186,6 +194,7 @@ def set_queue(_targets: List[dict]):
 def main_threads(_q: Queue,
                  workers=1,
                  executor_cls: Type[ISSHExecutorInterface] = FetchFileListExecutor,
+                 reporter_cls: Type[IReporterInterface] = ReporterSample,
                  level=Config.LEVEL):
     worker = ThreadWorkers(
         executor=executor_cls,
@@ -195,7 +204,7 @@ def main_threads(_q: Queue,
         level=level)
     worker.run()
 
-    print_results(worker.results)
+    reporter_cls.print_results(worker.results)
 
 
 # -----------------------------
@@ -246,14 +255,18 @@ def main(argv):
 
     target, log_level, debug, info, threaded = parse_args(argv)
     executor = None
+    reporter = None
     if target == 1:
         print("[INFO] Checking EXECUTOR_CLS...")
         print(f"[INFO] EXECUTOR_CLS: {Config.EXECUTOR_CLS}")
+        print(f"[INFO] REPORTER_CLS: {Config.REPORTER_CLS}")
     if target == 2:
         # executor = FetchLSDFExecutor
         executor_name = Config.EXECUTOR_CLS
+        reporter_cls = Config.REPORTER_CLS
         module = sys.modules[__name__]
         executor = getattr(module, executor_name, None)
+        reporter = getattr(module, reporter_cls, None)
 
     if executor is None:
         exit(1)
@@ -261,7 +274,11 @@ def main(argv):
     if threaded:
         # THREADING version
         q = set_queue(_targets=targets)
-        main_threads(_q=q, workers=Config.MAX_WORKERS, executor_cls=executor, level=log_level)
+        main_threads(_q=q,
+                     workers=Config.MAX_WORKERS,
+                     executor_cls=executor,
+                     reporter_cls=reporter,
+                     level=log_level)
     else:
         # NO threading version
         main_single(_targets=targets, executor_cls=executor, level=log_level)
