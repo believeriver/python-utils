@@ -86,6 +86,8 @@ class ThreadWorkers(IThreadWorkerInterface):
             self.logger.info({'thread': (item.hostname, item.ipaddr)})
             executor = self.executor(server_info=item, timeout=self.timeout_s, level=self.logger.level)
             res = executor.execute_command()
+            messages = {item.hostname: res}
+            self.logger.info(f"done: {messages}")
 
             with self.result_lock:
                 self.results.append({item.hostname: res})
