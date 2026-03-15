@@ -110,11 +110,18 @@ class ThreadWorkers(IThreadWorkerInterface):
 def set_queue(_targets: List[dict]):
     q = queue.Queue()
     for t in _targets:
+        username = t.get("username", Config.USERNAME)
+        if username == "" or username is None:
+            username = Config.USERNAME
+        password = t.get("password", Config.PASSWORD)
+        if password == "" or password is None:
+            password = Config.PASSWORD
+
         server_info = ServerInfo(
             ipaddr=t.get("ipaddr", None),
             hostname=t.get("hostname", None),
-            username=t.get("username", Config.USERNAME),
-            password=t.get("password", Config.PASSWORD))
+            username=username,
+            password=password,)
         q.put(server_info)
     return q
 
