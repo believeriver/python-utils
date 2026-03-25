@@ -7,6 +7,7 @@ import queue
 import threading
 import json
 from typing import List, Type
+import time
 from pprint import pformat
 import gc
 
@@ -226,6 +227,10 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    dt_now = datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')
+    start = time.time()
     main(sys.argv[1:])
+    end = time.time()
+    print(f"[INFO] Start: {dt_now}, Elapsed Time: {end - start:.2f} seconds")
 
     gc.collect()
