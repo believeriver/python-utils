@@ -278,7 +278,7 @@ class ISSHExecutorInterface(ABC):
 
 
 # -----------------------------
-# Concrete Executor.
+# Concrete Executor.(Example)
 # -----------------------------
 class FetchFileListExecutor(ISSHExecutorInterface):
     """

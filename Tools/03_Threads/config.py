@@ -20,11 +20,14 @@ class Config(object):
     # SET EXECUTOR_CLS
     executor_class_list = [
         "FetchFileListExecutor",
-        "FetchLSDFExecutor",]
+        "FetchLSDFExecutor",
+        "FetchPWDExecutor",
+    ]
     reporter_class_list = [
         "ReporterSample",]
 
-    executor_idx = 1
+    # SELECT EXECUTOR AND REPORTER
+    executor_idx = 2
     reporter_idx = 0
 
     EXECUTOR_CLS = executor_class_list[executor_idx]

@@ -21,6 +21,7 @@ from executor import (
     ServerInfo,
     main_single,
 )
+from concrete_executor import FetchPWDExecutor
 
 
 #-----------------------------
@@ -194,6 +195,7 @@ def main(argv):
     target, log_level, debug, info, threaded = parse_args(argv)
     executor = None
     reporter = None
+    print(f"[INFO] Target: {target}, Log Level: {logging.getLevelName(log_level)}, Threaded: {threaded}")
     if target == 1:
         print("[INFO] Checking EXECUTOR_CLS...")
         print(f"[INFO] EXECUTOR_CLS: {Config.EXECUTOR_CLS}")
