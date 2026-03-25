@@ -163,8 +163,8 @@ class ParamikoSSHClient(ISSHClientInterface):
                     chan.send(cmd)
                     # コマンド出力を収集（コマンドにより待ち時間は変わるので少し長めでもOK）
                     out_parts.append(self._recv_all(chan, max_wait_s=1.2))
-            return "".join(out_parts)
-            # return out_parts
+            # return "".join(out_parts)
+            return out_parts
 
         except (paramiko.SSHException,
                 socket.error,
@@ -321,7 +321,7 @@ class FetchLSDFExecutor(ISSHExecutorInterface):
 
     def execute_command(self):
         self.execute()
-        self.result = self.result.split("\n")
+        # self.result = self.result.split("\n")
         self.write_log()
         # text = self.result.splitlines()
         text = self.result
