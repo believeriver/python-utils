@@ -31,7 +31,13 @@ class ISSHClientInterface(ABC):
         self.commands = commands
         self.hostname = hostname
         self.ssh_host = ipaddr
+        if username == "" or username is None:
+            self.log.debug(username)
+            username = Config.USERNAME
         self.ssh_user = username
+        if password == "" or password is None:
+            self.log.debug(password)
+            password = Config.PASSWORD
         self.password = password
         self.port = port
         self.timeout = timeout
@@ -163,8 +169,9 @@ class ParamikoSSHClient(ISSHClientInterface):
                     chan.send(cmd)
                     # コマンド出力を収集（コマンドにより待ち時間は変わるので少し長めでもOK）
                     out_parts.append(self._recv_all(chan, max_wait_s=1.2))
-            # return "".join(out_parts)
-            return out_parts
+            return "".join(out_parts)
+            # return out_parts
+            # return "".join(out_parts).splitlines()
 
         except (paramiko.SSHException,
                 socket.error,
@@ -223,6 +230,9 @@ class ISSHExecutorInterface(ABC):
             self.execute_command()
 
         self.logger.debug(f'write to {self.out_filename}')
+        if type(self.result) == str:
+            self.result = self.result.splitlines()
+
         with open(self.out_filename, mode="w") as f:
             for text in self.result:
                 text = str(text).lstrip("b'")
@@ -320,10 +330,14 @@ class FetchLSDFExecutor(ISSHExecutorInterface):
         return "FetchFileListExecutor"
 
     def execute_command(self):
-        self.execute()
+        #
+        #memo split
+        # memo splitlines()は、改行コードを考慮して行ごとに分割する。改行コードは削除される。
         # self.result = self.result.split("\n")
-        self.write_log()
         # text = self.result.splitlines()
+        #
+        self.execute()
+        self.write_log()
         text = self.result
         text_lines = [ln for ln in text if ln.strip()]
         result = text_lines[1:2]
@@ -345,7 +359,7 @@ def main_single(_targets: List[dict],
             password=t.get("password", Config.PASSWORD))
         datasets.append(server_info)
 
-    print(len(datasets))
+    # print(len(datasets))
     results = []
     for dataset in datasets:
         executor = executor_cls(server_info=dataset, level=level)

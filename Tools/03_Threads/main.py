@@ -85,7 +85,7 @@ class ThreadWorkers(IThreadWorkerInterface):
             item = self.queue.get()
             if item is None:
                 break
-            self.logger.info({'thread': (item.hostname, item.ipaddr)})
+            self.logger.info({'thread': (item.hostname, item.ipaddr, item.username, item.password)})
             executor = self.executor(server_info=item, timeout=self.timeout_s, level=self.logger.level)
             res = executor.execute_command()
             messages = {item.hostname: res}
