@@ -16,12 +16,15 @@ logger.info('Path added to sys.path: {}'.format(project_root))
 import gc
 import pandas as pd
 import numpy as np
-
 import matplotlib.pyplot as plt
 from pandas_datareader import data as pdr
-# import yfinance as yf
+import yfinance as yf
 import datetime
+import time
 
+
+class DataSourceError(Exception):
+    pass
 
 class JapanStockModel(object):
     def __init__(self, _ticker_symbol, _start, _end=str(datetime.date.today())):
@@ -30,6 +33,24 @@ class JapanStockModel(object):
         self.start = _start
         self.end = _end
         self._duration = 30
+
+    @staticmethod
+    def fetch_by_yfinance(ticker: int, start: str, end: str) -> pd.DataFrame:
+        symbol = f"{ticker}.T"
+        try:
+            time.sleep(1.0)  # レート制限回避のため控えめに
+            df = yf.download(symbol, start=start, end=end, progress=False, threads=False)
+        except Exception as e:
+            raise DataSourceError(f"yfinance failed: {symbol}: {e}")
+
+        if df.empty:
+            raise DataSourceError(f"yfinance returned empty dataframe: {symbol}")
+
+        if "Close" not in df.columns:
+            raise DataSourceError(
+                f"yfinance missing Close column: {symbol}, columns={list(df.columns)}"
+            )
+        return df
 
     @staticmethod
     def fetch_japan_stock_by_pdr_stooq(
@@ -54,6 +75,34 @@ class JapanStockModel(object):
         logger.info("Downloaded %s rows for %s", len(df), ticker_symbol_dr)
         return df
 
+    @staticmethod
+    def fetch_by_stooq(ticker: int, start: str, end: str) -> pd.DataFrame:
+        symbol = f"{ticker}.JP"
+        try:
+            df = pdr.DataReader(symbol, "stooq", start=start, end=end)
+        except Exception as e:
+            raise DataSourceError(f"stooq failed: {symbol}: {e}")
+
+        if df.empty:
+            raise DataSourceError(f"stooq returned empty dataframe: {symbol}")
+
+        if "Close" not in df.columns:
+            raise DataSourceError(
+                f"stooq missing Close column: {symbol}, columns={list(df.columns)}"
+            )
+        return df.sort_index()
+
+    def fetch_stock_dataframe(self, ticker: int, start: str, end: str) -> pd.DataFrame:
+        errors = []
+
+        for fetcher in (self.fetch_by_stooq, self.fetch_by_yfinance):
+            try:
+                return fetcher(ticker, start, end)
+            except DataSourceError as e:
+                errors.append(str(e))
+
+        raise DataSourceError(" | ".join(errors))
+
     @property
     def duration(self):
         return self._duration
@@ -64,7 +113,9 @@ class JapanStockModel(object):
 
     def import_data(self):
         # self.train, self.test, self.sample = self._import_csv()
-        self.train = self.fetch_japan_stock_by_pdr_stooq(
+        # self.train = self.fetch_japan_stock_by_pdr_stooq(
+        #     self.ticker_symbol, self.start, self.end)
+        self.train = self.fetch_stock_dataframe(
             self.ticker_symbol, self.start, self.end)
         if self.train.empty:
             raise ValueError(f"No stock data found for ticker={self.ticker_symbol}")
@@ -87,13 +138,22 @@ def fetch_stock_dataframe(
     dataset = JapanStockModel(company_code, start, end)
     dataset.duration = span
     dataset.import_data()
-    d_year = dataset.train.index
-    data = np.array(dataset.train['Close'])
-    d = {'year': d_year,
-         'value': data}
-    df = pd.DataFrame(d)
-    del dataset
 
+    if dataset.train is None or dataset.train.empty:
+        return pd.DataFrame(columns=['year', 'value'])
+
+    if 'Close' not in dataset.train.columns:
+        raise ValueError(f"Close column not found: columns={list(dataset.train.columns)}")
+
+    d_year = dataset.train.index.to_list()
+    data = np.array(dataset.train['Close']).ravel()
+
+    df = pd.DataFrame({
+        'year': d_year,
+        'value': data,
+    })
+
+    del dataset
     return df
 
 
