@@ -27,6 +27,9 @@ class DataSourceError(Exception):
     pass
 
 class JapanStockModel(object):
+    """
+    (.venv) 04_stocks$ pip install pandas matplotlib pandas-datareader yfinance
+    """
     def __init__(self, _ticker_symbol, _start, _end=str(datetime.date.today())):
         self.train = None
         self.ticker_symbol = _ticker_symbol
