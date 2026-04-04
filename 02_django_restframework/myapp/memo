@@ -10,8 +10,10 @@ pip install django djangorestframework djangorestframework-simplejwt
 django-admin startproject config .
 
 # 4. appsディレクトリ作成
-mkdir apps
-touch apps/__init__.py
+# mkdir apps
+#touch apps/__init__.py
 
 # 5. アプリ作成
-python manage.py startapp api_auth apps/api_auth
+# python manage.py startapp api_auth apps/api_auth
+
+python manage.py startapp api_auth
