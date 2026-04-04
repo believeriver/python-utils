@@ -1,0 +1,17 @@
+# 1. 仮想環境を作成・有効化（先にやっておくべき）
+python -m venv venv
+source venv/bin/activate        # Mac/Linux
+# venv\Scripts\activate         # Windows
+
+# 2. パッケージインストール
+pip install django djangorestframework djangorestframework-simplejwt
+
+# 3. プロジェクト作成
+django-admin startproject config .
+
+# 4. appsディレクトリ作成
+mkdir apps
+touch apps/__init__.py
+
+# 5. アプリ作成
+python manage.py startapp api_auth apps/api_auth
