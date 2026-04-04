@@ -25,3 +25,4 @@ Tools/03_Threads/archive
 Tools/03_Threads/out
 Tools/03_Threads/__pycache__/
 Tools/04_stocks/common/__pycache__/
+02_django_restframework/myapp/config/__pycache__/
