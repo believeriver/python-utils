@@ -1,0 +1,24 @@
+# ユーザー登録
+curl -X POST http://localhost:8000/api/auth/register/ \
+  -H "Content-Type: application/json" \
+  -d '{"email":"nono@example.com","username":"nono","password":"pass1234","password2":"pass1234"}'
+
+# 期待レスポンス
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "email": "nono@example.com",
+  "username": "nono"
+}
+
+# ログイン
+curl -X POST http://localhost:8000/api/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"email":"nono@example.com","password":"pass1234"}'
+
+# 期待レスポンス
+{
+  "access": "eyJ...",
+  "refresh": "eyJ...",
+  "email": "nono@example.com",
+  "username": "nono"
+}
