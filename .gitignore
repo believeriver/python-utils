@@ -26,3 +26,7 @@ Tools/03_Threads/out
 Tools/03_Threads/__pycache__/
 Tools/04_stocks/common/__pycache__/
 02_django_restframework/myapp/config/__pycache__/
+02_django_restframework/myapp/api_auth/__pycache__/
+02_django_restframework/myapp/api_auth/migrations/0001_initial.py
+02_django_restframework/myapp/api_auth/migrations/__pycache__/
+02_django_restframework/myapp/db.sqlite3
