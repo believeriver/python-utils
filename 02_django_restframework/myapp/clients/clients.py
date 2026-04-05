@@ -29,18 +29,43 @@ def fetch_token(_email: str, _password: str):
     return response.json().get('access')
 
 
+def logout(_access_token: str, _refresh_token: str):
+    _url = f'{BASE_URL}api/auth/logout/'
+    response = requests.post(
+        _url,
+        json={'refresh': _refresh_token},
+        headers={'Authorization': f'Bearer {_access_token}'},
+    )
+    logger.debug({'logout status': response.status_code})
+    return response.status_code
+
+
 if __name__ == '__main__':
     email = 'nono@example.com'
     password = 'pass1234'
     password2 = 'pass1234'
 
-    create_flg = False
+    # create_flg = False
+    #
+    # if create_flg:
+    #     print('create user:')
+    #     res = create_user(email, password, password2)
+    #     print('res:', res)
+    #
+    # print('fetch token')
+    # token = fetch_token(email, password)
+    # print({'Authorization JWT': token})
 
-    if create_flg:
-        print('create user:')
-        res = create_user(email, password, password2)
-        print('res:', res)
+    # ログイン
+    login_response = requests.post(
+        f'{BASE_URL}api/auth/login/',
+        json={'email': email, 'password': password},
+    )
+    access_token  = login_response.json().get('access')
+    refresh_token = login_response.json().get('refresh')
+    print(f'access_token: {access_token}')
+    print(f'refresh_token: {refresh_token}')
 
-    print('fetch token')
-    token = fetch_token(email, password)
-    print({'Authorization JWT': token})
+    # ログアウト
+    status_code = logout(access_token, refresh_token)
+    print({'logout status': status_code})

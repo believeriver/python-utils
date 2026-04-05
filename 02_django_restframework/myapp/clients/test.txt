@@ -22,3 +22,30 @@ curl -X POST http://localhost:8000/api/auth/login/ \
   "email": "nono@example.com",
   "username": "nono"
 }
+
+----
+logout
+
+# 1. ログインしてトークン取得
+curl -X POST http://localhost:8000/api/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"email":"nono@example.com","password":"pass1234"}'
+
+# 2. ログアウト（AccessTokenとRefreshToken両方必要）
+curl -X POST http://localhost:8000/api/auth/logout/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{"refresh":"<refresh_token>"}'
+
+# 期待レスポンス
+# HTTP 205（ボディなし）
+
+# 3. Blacklist確認（同じRefreshTokenでリフレッシュを試みる）
+curl -X POST http://localhost:8000/api/auth/refresh/ \
+  -H "Content-Type: application/json" \
+  -d '{"refresh":"<refresh_token>"}'
+
+# 期待レスポンス
+# {"detail": "Token is blacklisted", "code": "token_not_valid"}
+
+
