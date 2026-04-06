@@ -5,7 +5,7 @@ import sys
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 logger = logging.getLogger(__name__)
 
-BASE_URL = 'http://127.0.0.1:8000/'
+BASE_URL = 'http://127.0.0.1:8080/'
 
 
 def create_user(_email: str, _password: str, _password2: str):
@@ -40,6 +40,23 @@ def logout(_access_token: str, _refresh_token: str):
     return response.status_code
 
 
+def get_profile(_access_token: str):
+    _url = f'{BASE_URL}api/profile/'
+    response = requests.get(
+        _url,
+        headers={'Authorization': f'Bearer {_access_token}'},
+    )
+    logger.debug({'get_profile status': response.status_code})
+    return response.json()
+
+
+def get_profile_no_auth():
+    _url = f'{BASE_URL}api/profile/'
+    response = requests.get(_url)
+    logger.debug({'get_profile_no_auth status': response.status_code})
+    return response.json()
+
+
 if __name__ == '__main__':
     email = 'nono@example.com'
     password = 'pass1234'
@@ -65,6 +82,14 @@ if __name__ == '__main__':
     refresh_token = login_response.json().get('refresh')
     print(f'access_token: {access_token}')
     print(f'refresh_token: {refresh_token}')
+
+    # 認証ありでプロフィール取得
+    print('--- 認証あり ---')
+    print(get_profile(access_token))
+
+    # 認証なしでプロフィール取得
+    print('--- 認証なし ---')
+    print(get_profile_no_auth())
 
     # ログアウト
     status_code = logout(access_token, refresh_token)

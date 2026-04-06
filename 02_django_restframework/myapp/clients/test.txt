@@ -48,4 +48,28 @@ curl -X POST http://localhost:8000/api/auth/refresh/ \
 # 期待レスポンス
 # {"detail": "Token is blacklisted", "code": "token_not_valid"}
 
+---
+IsAuthenticated test
 
+# 1. トークン取得
+curl -X POST http://localhost:8000/api/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"email":"nono@example.com","password":"pass1234"}'
+
+# 2. プロフィール取得（認証あり）
+curl http://localhost:8000/api/profile/ \
+  -H "Authorization: Bearer <access_token>"
+
+# 期待レスポンス
+{
+  "id": "550e8400-...",
+  "email": "nono@example.com",
+  "username": "nono",
+  "created_at": "2026-04-06T00:00:00Z"
+}
+
+# 3. トークンなしでアクセス
+curl http://localhost:8000/api/profile/
+
+# 期待レスポンス
+{"detail": "Authentication credentials were not provided."}
