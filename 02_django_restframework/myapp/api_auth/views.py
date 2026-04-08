@@ -4,7 +4,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
-from .serializers import RegisterSerializer, CustomTokenObtainPairSerializer, LogoutSerializer
+from .serializers import (
+    RegisterSerializer,
+    CustomTokenObtainPairSerializer,
+    LogoutSerializer,
+    ChangePasswordSerializer,
+)
 
 User = get_user_model()
 
@@ -28,3 +33,19 @@ class LogoutView(APIView):
         serializer.save()
         return Response(status=status.HTTP_205_RESET_CONTENT)
 
+
+class ChangePasswordView(APIView):
+    """パスワード変更API"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={'request': request}  # ← serializerにrequestを渡す
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {'message': 'Password changed successfully'},
+            status=status.HTTP_200_OK
+        )

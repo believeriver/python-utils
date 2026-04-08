@@ -47,3 +47,36 @@ class LogoutSerializer(serializers.Serializer):
             RefreshToken(self.token).blacklist()
         except TokenError:
             raise serializers.ValidationError({'refresh': 'Token is invalid or expired'})
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """
+    2026.4.8 パスワード変更用シリアライザを追加
+     - current_password: 現在のパスワード（検証用）
+     - new_password: 新しいパスワード（8文字以上）
+     - new_password2: 新しいパスワードの確認（new_passwordと一致する必要あり）
+     - validate_current_password: 現在のパスワードが正しいか検証
+     - validate: new_passwordとnew_password2が一致するか検証
+     - save: パスワードを更新してユーザーを保存
+     - これにより、ユーザーは現在のパスワードを入力して新しいパスワードに変更できるようになります。
+     POST /api/auth/change-password/
+    """
+    current_password = serializers.CharField(write_only=True)
+    new_password     = serializers.CharField(write_only=True, min_length=8)
+    new_password2    = serializers.CharField(write_only=True)
+
+    def validate_current_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError('Current password is incorrect')
+        return value
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['new_password2']:
+            raise serializers.ValidationError({'new_password': 'Passwords do not match'})
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        user.set_password(self.validated_data['new_password'])
+        user.save()
+        return user

@@ -73,3 +73,49 @@ curl http://localhost:8000/api/profile/
 
 # 期待レスポンス
 {"detail": "Authentication credentials were not provided."}
+
+
+----
+# 1. ログインしてトークン取得
+curl -X POST http://localhost:8000/api/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"email":"nono@example.com","password":"pass1234"}'
+
+# 2. パスワード変更
+curl -X POST http://localhost:8000/api/auth/change-password/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{
+    "current_password": "pass1234",
+    "new_password": "newpass5678",
+    "new_password2": "newpass5678"
+  }'
+
+# 期待レスポンス
+{"message": "Password changed successfully"}
+
+# 3. 古いパスワードでログイン試行（失敗確認）
+curl -X POST http://localhost:8000/api/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"email":"nono@example.com","password":"pass1234"}'
+
+# 期待レスポンス
+{"detail": "No active account found with the given credentials"}
+
+(.venv) clients$ python changepasswd.py
+DEBUG:urllib3.connectionpool:Starting new HTTP connection (1): 127.0.0.1:8080
+DEBUG:urllib3.connectionpool:http://127.0.0.1:8080 "POST /api/auth/login/ HTTP/1.1" 200 627
+--- パスワード変更 ---
+DEBUG:urllib3.connectionpool:Starting new HTTP connection (1): 127.0.0.1:8080
+DEBUG:urllib3.connectionpool:http://127.0.0.1:8080 "POST /api/auth/change-password/ HTTP/1.1" 200 43
+DEBUG:__main__:{'change_password status': 200}
+{'message': 'Password changed successfully'}
+--- 新パスワードでログイン ---
+DEBUG:urllib3.connectionpool:Starting new HTTP connection (1): 127.0.0.1:8080
+DEBUG:urllib3.connectionpool:http://127.0.0.1:8080 "POST /api/auth/login/ HTTP/1.1" 200 627
+{'status': 200, 'access': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc1NjQzODkwLCJpYXQiOjE3NzU2NDIwOTAsImp0aSI6ImIzYjJjNTU4ZTk2ZTQ1YWJhMzU4ZDZkMGQyNWQxMTQ2IiwidXNlcl9pZCI6IjdlZjNmZmFiLWM5NzAtNGE0Yy1iNzczLTg3YTY0YjZjY2YyYiJ9.atUeO6SJXe_8ui8swRvR_vinW-NVX4hUDb0Y8jzuovY'}
+(.venv) clients$
+
+
+
+
