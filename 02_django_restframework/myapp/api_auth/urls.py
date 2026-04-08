@@ -6,6 +6,7 @@ from .views import (
     CustomTokenObtainPairView,
     LogoutView,
     ChangePasswordView,
+    ProfileUpdateView,
 )
 
 urlpatterns = [
@@ -14,4 +15,5 @@ urlpatterns = [
     path('refresh/',  TokenRefreshView.as_view(),          name='auth-refresh'),
     path('logout/',   LogoutView.as_view(),                name='auth-logout'),
     path('change-password/', ChangePasswordView.as_view(),        name='auth-change-password'),
+    path('profile/',         ProfileUpdateView.as_view(),         name='auth-profile'),
 ]

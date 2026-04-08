@@ -80,3 +80,26 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.set_password(self.validated_data['new_password'])
         user.save()
         return user
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    """
+    2026.4.9 プロフィール更新用シリアライザを追加
+    """
+    class Meta:
+        model  = User
+        fields = ['email', 'username']
+
+    def validate_email(self, value):
+        user = self.context['request'].user
+        # 自分以外が同じemailを使っていないか確認
+        if User.objects.exclude(pk=user.pk).filter(email=value).exists():
+            raise serializers.ValidationError('This email is already in use')
+        return value
+
+    def update(self, instance, validated_data):
+        instance.email    = validated_data.get('email',    instance.email)
+        instance.username = validated_data.get('username', instance.username)
+        instance.save()
+        return instance
+

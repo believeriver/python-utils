@@ -9,6 +9,7 @@ from .serializers import (
     CustomTokenObtainPairSerializer,
     LogoutSerializer,
     ChangePasswordSerializer,
+    ProfileUpdateSerializer,
 )
 
 User = get_user_model()
@@ -49,3 +50,30 @@ class ChangePasswordView(APIView):
             {'message': 'Password changed successfully'},
             status=status.HTTP_200_OK
         )
+
+
+class ProfileUpdateView(APIView):
+    """プロフィール更新API"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """現在のユーザー情報を取得"""
+        user = request.user
+        return Response({
+            'id':         str(user.id),
+            'email':      user.email,
+            'username':   user.username,
+            'created_at': user.created_at,
+        })
+
+    def patch(self, request):
+        """ユーザー情報を部分更新"""
+        serializer = ProfileUpdateSerializer(
+            instance=request.user,
+            data=request.data,
+            partial=True,                   # ← PATCH挙動を明示
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
