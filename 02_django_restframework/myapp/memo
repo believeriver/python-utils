@@ -30,3 +30,10 @@ This password is too common.
 Bypass password validation and create user anyway? [y/N]: y
 Superuser created successfully.
 (.venv) myapp$
+
+
+---
+# Next agenda memo
+ユーザー削除APIの実装
+トークン期限切れ時のエラーハンドリング
+VPS デプロイ準備（settings.py の本番設定）
