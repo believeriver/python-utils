@@ -11,7 +11,13 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
+# ============================================================
+# 基本パス設定
+# ============================================================
+# BASE_DIR : このファイルの2階層上 = プロジェクトルート
+# manage.py と同じ階層を指す
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -19,15 +25,25 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
+# ============================================================
+# セキュリティ設定
+# ============================================================
+# 本番では必ず環境変数から読む（ハードコード禁止）
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-v)g(m+t3g5o*z7y*h1qw!nk%3nliv5dsei9o@c0wsl$=sdp@)$'
 
+# True にすると詳細なエラー画面が表示される（本番では必ず False）
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# DEBUG=False の時に許可するホスト名のリスト
+# 本番例: ['yourdomain.com', 'www.yourdomain.com']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 
+# ============================================================
+# アプリケーション定義
+# ============================================================
 # Application definition
 
 INSTALLED_APPS = [
@@ -37,19 +53,31 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # サードパーティ（pipでインストールしたもの）
+    'rest_framework',           # DRF本体
+    'rest_framework_simplejwt', # JWT認証
+    'rest_framework_simplejwt.token_blacklist',  # ログアウト時のトークン無効化
+
+    # 自作アプリ（これから追加していく）
+    # 'apps.api_auth',
 ]
 
+# ============================================================
+# ミドルウェア
+# リクエストとレスポンスに対して順番に処理を挟む仕組み
+# 上から順に「前処理」、下から順に「後処理」として動く
+# ============================================================
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
+    'django.middleware.security.SecurityMiddleware', # HTTPSリダイレクト等
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware', # CSRF保護
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = 'config.urls' # URLの入口ファイルを指定
 
 TEMPLATES = [
     {
@@ -69,7 +97,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-
+# ============================================================
+# データベース設定
+# ============================================================
+# 開発中はSQLite（ファイルDB）で十分
+# 本番ではPostgreSQLに切り替える
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
@@ -80,7 +112,9 @@ DATABASES = {
     }
 }
 
-
+# ============================================================
+# 認証設定
+# ============================================================
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
@@ -99,25 +133,65 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
+# ============================================================
+# 国際化設定
+# ============================================================
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ja'           # 管理画面を日本語化
+TIME_ZONE     = 'Asia/Tokyo'   # 日本時間
+USE_I18N      = True
+USE_TZ        = True           # タイムゾーン対応を有効化
 
-TIME_ZONE = 'UTC'
-
-USE_I18N = True
-
-USE_TZ = True
-
-
+# ============================================================
+# 静的ファイル設定
+# ============================================================
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 
+# ============================================================
+# デフォルト主キー型
+# ============================================================
+# Django 3.2以降のデフォルト。IntegerFieldの自動インクリメント
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ============================================================
+# DRF（Django REST Framework）設定  ← ここが今日の核心
+# ============================================================
+REST_FRAMEWORK = {
+    # 認証方式：JWTを使う
+    # リクエストヘッダー： "Authorization: Bearer <token>"で認証
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+
+    # パーミッション（アクセス制御）：認証済みユーザーのみアクセス許可
+    # 個別のViewで上書き可能
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+# ============================================================
+# JWT設定
+# ============================================================
+SIMPLE_JWT = {
+    # アクセストークンの有効期限（例: 1時間）
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=30),
+
+    # リフレッシュトークンの有効期限（例: 7日）
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+
+    # リフレッシュ時に新しいアクセストークンとリフレッシュトークンを発行するか
+    'ROTATE_REFRESH_TOKENS': True,
+
+    # ログアウト時にトークンをブラックリストに登録して無効化する
+    # token_blacklistアプリをINSTALLED_APPSに追加する必要あり
+    'BLACKLIST_AFTER_ROTATION': True,
+}

@@ -1,6 +1,11 @@
 git_settings.txt
 .idea/
 __pycache__/*
+__pycache__/
+*.pyc
+*.pyo
+db.sqlite3
+.venv/
 01_async/server/log/
 01_async/clients/config/__pycache__/*
 01_async/clients/tools/__pycache__/*
@@ -33,3 +38,4 @@ Tools/04_stocks/common/__pycache__/
 02_django_restframework/myapp/db.sqlite3
 02_django_restframework/myapp/api/migrations/__pycache__/
 02_django_restframework/myapp/api/__pycache__/
+02_django_restframework/claude_teach/drf_study/config/__pycache__/
