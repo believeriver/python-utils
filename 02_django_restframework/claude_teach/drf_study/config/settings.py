@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',  # ログアウト時のトークン無効化
 
     # 自作アプリ（これから追加していく）
+    'apps.api_market',
     # 'apps.api_auth',
 ]
 
