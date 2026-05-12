@@ -56,3 +56,33 @@ class CompanySerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+    # ------------------------------------------------
+    # バリデーションメソッド
+    # 1 フィールドレベルバリデーション
+    # validate_<フィールド名> というメソッドを定義する約束
+    # ------------------------------------------------
+    def validate_code(self, value):
+        """
+        codeは4桁の数字でなければならない
+        :param value:
+        :return:
+        """
+        if not value.isdigit() or len(value) != 4:
+            raise serializers.ValidationError('code must be a 4-digit number')
+        return value
+
+    # ------------------------------------------------
+    # 2 オブジェクトレベルバリデーション
+    # 複数フィールドまたいだ検証をする
+    # validate というメソッドを定義する約束
+    # ------------------------------------------------
+    def validate(self, attrs):
+        """
+        rankが指定されている場合はdateも必須にする
+        """
+        if attrs.get('rank') and not attrs.get('date'):
+            raise serializers.ValidationError(
+                {'date': 'date is required when rank is specified'}
+            )
+        return attrs
