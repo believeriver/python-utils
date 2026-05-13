@@ -3,8 +3,10 @@ from .models import Company
 from .serializers import CompanySerializer
 
 
-class CompanyViewSet(viewsets.ModelViewSet):
+# class CompanyViewSet(viewsets.ModelViewSet):
+class CompanyViewSet(viewsets.ReadOnlyModelViewSet):
     """
+    viewsets.ModelViewSet
     企業情報のCRUD APIを提供するViewSet
 
     ModelVIewSetが自動生成するエンドポイント：
@@ -14,6 +16,11 @@ class CompanyViewSet(viewsets.ModelViewSet):
     PUT /api/companies/<code>/     : update()   企業の全更新
     PATCH /api/companies/<code>/   : partial_update() 企業の部分更新
     DELETE /api/companies/<code>/  : destroy() 企業の削除
+    """
+    """
+    viewsets.ReadOnlyModelViewSet
+    読み取り専用ViewSet
+    GET のみ許可、POST / PUT / PATCH / DELETE は 405 Method Not Allowed
     """
 
     # 返すデータの元となるクエリセット
