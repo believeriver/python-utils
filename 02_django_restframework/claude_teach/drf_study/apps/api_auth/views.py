@@ -8,7 +8,7 @@ from .serializers import RegisterSerializer, UserSerializer
 User = get_user_model()
 
 
-class RegisterView(APIView):
+class RegisterView(generics.CreateAPIView):
     """
     ユーザ登録用APIビュー
     POST /api/auth/register/ でユーザ登録を処理
@@ -55,11 +55,13 @@ class LogoutView(APIView):
             # クライアントからリフレッシュトークンを受け取る
             refresh_token = request.data['refresh']
             token = RefreshToken(refresh_token)
+            print('DEBUG refresh_token:', refresh_token)
             token.blacklist()  # トークンをブラックリストに追加して無効化
             return Response(
                 {'message': 'Logged out successfully.'},
-                status=status.HTTP_204_NO_CONTENT)
+                status=status.HTTP_200_OK)
         except Exception as e:
+            print(f'DEBUG logout error: {e}')
             return Response(
                 {'error': 'Invalid token or logout failed.'},
                 status=status.HTTP_400_BAD_REQUEST)

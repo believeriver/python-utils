@@ -196,3 +196,10 @@ SIMPLE_JWT = {
     # token_blacklistアプリをINSTALLED_APPSに追加する必要あり
     'BLACKLIST_AFTER_ROTATION': True,
 }
+
+# ============================================================
+# カスタムユーザモデルの指定
+# ============================================================
+# デフォルトのUserモデルをカスタムUserモデルに置き換える
+# これにより、apps/api_auth/models.pyのUserクラスがユーザモデル
+AUTH_USER_MODEL = 'api_auth.User'

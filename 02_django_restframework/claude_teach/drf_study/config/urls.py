@@ -22,4 +22,6 @@ urlpatterns = [
 
     # api_market のURLを /api/market/　以下に配置
     path('api/market/', include('apps.api_market.urls')),
+    # api_auth のURLを /api/auth/　以下に配置
+    path('api/auth/', include('apps.api_auth.urls')),
 ]

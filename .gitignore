@@ -39,3 +39,6 @@ Tools/04_stocks/common/__pycache__/
 02_django_restframework/myapp/api/migrations/__pycache__/
 02_django_restframework/myapp/api/__pycache__/
 02_django_restframework/claude_teach/drf_study/config/__pycache__/
+02_django_restframework/claude_teach/drf_study/db.sqlite3
+02_django_restframework/claude_teach/drf_study/api/__pycache__/
+02_django_restframework/claude_teach/drf_study/api/migrations/__pycache__/
