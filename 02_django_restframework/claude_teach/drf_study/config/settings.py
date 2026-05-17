@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     # 自作アプリ（これから追加していく）
     'apps.api_market',
     'apps.api_auth',
+    'apps.portfolio',
 ]
 
 # ============================================================
