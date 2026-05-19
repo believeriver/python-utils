@@ -24,4 +24,6 @@ urlpatterns = [
     path('api/market/', include('apps.api_market.urls')),
     # api_auth のURLを /api/auth/　以下に配置
     path('api/auth/', include('apps.api_auth.urls')),
+    # portfolio のURLを /api/portfolio/　以下に配置
+    path('api/portfolio/', include('apps.portfolio.urls')),
 ]

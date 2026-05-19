@@ -27,3 +27,10 @@ class PortfolioViewSet(viewsets.ModelViewSet):
         :return:
         """
         return Portfolio.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        """
+        新規作成時にユーザを自動セットする
+        クライアントからuserを送らなくても自動セットされる
+        """
+        serializer.save(user=self.request.user)
