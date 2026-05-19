@@ -9,11 +9,11 @@ class PortfolioViewSet(viewsets.ModelViewSet):
 
     重要：ログインユーザのデータだけを返す
     他のユーザのデータは一切見えない
-     - GET /api/portfolio/         : ポートフォリオの一覧を取得
-     - POST /api/portfolio/        : 新しいポートフォリオを作成
-     - GET /api/portfolio/{id}/    : 特定のポートフォリオを取得
-     - PUT /api/portfolio/{id}/    : 特定のポートフォリオを更新
-     - DELETE /api/portfolio/{id}/ : 特定のポートフォリオを削除
+     - GET /api/portfolio/items/         : ポートフォリオの一覧を取得
+     - POST /api/portfolio/items/        : 新しいポートフォリオを作成
+     - GET /api/portfolio/items/{id}/    : 特定のポートフォリオを取得
+     - PUT /api/portfolio/items/{id}/    : 特定のポートフォリオを更新
+     - DELETE /api/portfolio/items/{id}/ : 特定のポートフォリオを削除
     """
     serializer_class = PortfolioSerializer
     permission_classes = [permissions.IsAuthenticated] # 認証されたユーザのみアクセス可能
