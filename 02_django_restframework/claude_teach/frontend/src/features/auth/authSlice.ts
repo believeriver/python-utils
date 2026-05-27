@@ -44,3 +44,28 @@ export const registerUser = createAsyncThunk(
         }
     }
 )
+
+// -----------------------------------------------
+// ユーザーログイン
+// -----------------------------------------------
+export const loginUser = createAsyncThunk(
+    'auth/login',
+    async (
+        data: { email: string; password: string },
+        { rejectWithValue }
+    ) => {
+        try {
+            const response = await api.post('/auth/login/', data);
+            const { access, refresh } = response.data;
+            // トークンをlocalStorageに保存
+            localStorage.setItem('access_token', access);
+            localStorage.setItem('refresh_token', refresh);
+            return response.data; // 成功時はユーザーデータを返す
+        } catch (error: any) {
+            console.error('Error logging in:', error);
+            return rejectWithValue(
+                error.response?.data || 'ログインに失敗しました'
+            ); // 失敗時はエラーメッセージを返す
+        }
+    }
+)
