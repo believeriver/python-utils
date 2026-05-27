@@ -1,5 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
-import marketReducer from "./features/market/marketSlice";
+import marketReducer from "../features/market/marketSlice";
 
 
 export const store = configureStore({

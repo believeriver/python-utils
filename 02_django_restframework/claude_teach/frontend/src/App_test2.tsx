@@ -1,30 +1,52 @@
-import { useEffect } from 'react';
-import { useAppDispatch, useAppSelector } from './app/hooks';
-import { fetchCompanies } from './features/market/marketSlice';
+import {useState, useEffect} from 'react';
+import api from './api/axiosConfig';
+
+// TypesScript:APIレスポンスの型定義
+type Company = {
+  id: number
+  code: string
+  name: string
+  stock: string
+  stock_numeric: number | null
+  dividned: string
+  dividend_yield: string
+  rank: number | null
+}
 
 
 const App = () => {
-  const dispatch = useAppDispatch();
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Reduxから状態を取得
-  const companies = useAppSelector((state) => state.market.companies);
-  const loading = useAppSelector((state) => state.market.loading);
-  const error = useAppSelector((state) => state.market.error);
-
-  // コンポーネントが表示されたときに企業情報を取得する
+  // useEffect: コンポーネントが表示された時に実行される
+  // 第２引数の[]は、「初回レンダリング時のみ実行」の意味
   useEffect(() => {
-    dispatch(fetchCompanies());
-  }, [dispatch]);
+    const fetchCompanies = async () => {
+      try {
+        const response = await api.get('/market/companies/');
+        setCompanies(response.data);
+      } catch (err) {
+        setError('データの取得に失敗しました');
+        console.error(err);
+      } finally {
+        // 成功・失敗どちらでもローディング終了
+        setLoading(false);
+      }
+    };
 
+    fetchCompanies();
+  }, []);
 
   // ローディング中やエラー発生時の表示
   if (loading) return <div>Loading...</div>;
+
   // エラーがあれば表示
   if (error) return <p style={{color: 'red'}}>{error}</p>;
 
   return (
     <div style={{ padding: '2rem' }}>
-      <h1>企業一覧</h1>
+      <h1>企業情報</h1>
       <table style={{ borderCollapse: 'collapse', width: '100%'}}>
         <thead>
           <tr style={{ backgroundColor: '#ddd'}}>
