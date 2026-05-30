@@ -47,11 +47,56 @@ const LoginPage = ({ onSuccess, onRegister }: Props) => {
 const styles: { [key: string]: React.CSSProperties } = {
     container: {
         display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
         justifyContent: 'center',
-        height: '100vh',
-        backgroundColor: '#f5f5f5',
+        alignItems: 'center',
+        minHeight: '100vh',
+    },
+    card: {
+        backgroundColor: '#fff',
+        padding: '2rem',
+        borderRadius: '8px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        width: '100%',
+        maxWidth: '400px',
+    },
+    title: {
+        marginBottom: '1.5rem',
+        textAlign: 'center',
+    },
+    field: {
+        marginBottom: '1rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px',
+    },
+    input: {
+        padding: '8px',
+        border: '1px solid #ccc',
+        borderRadius: '4px',
+        fontSize: '1rem',
+    },
+    button: {
+        width: '100%',
+        padding: '10px',
+        backgroundColor: '#4a90e2',
+        color: '#fff',
+        border: 'none',
+        borderRadius: '4px',
+        fontSize: '1rem',
+        cursor: 'pointer',
+        marginTop: '0.5rem',
+    },
+    error: {
+        color: '#e74c3c',
+        backgroundColor: '#fdecea',
+        padding: '8px',
+        borderRadius: '4px',
+        marginBottom: '1rem',
+    },
+    link: {
+        color: '#4a90e2',
+        cursor: 'pointer',
+        marginLeft: '4px',
     },
 }
 
