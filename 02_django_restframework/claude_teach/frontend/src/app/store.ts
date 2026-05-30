@@ -1,10 +1,12 @@
 import { configureStore } from "@reduxjs/toolkit";
 import marketReducer from "../features/market/marketSlice";
+import authReducer from "../features/auth/authSlice";
 
 
 export const store = configureStore({
     reducer: {
         market: marketReducer, //機能ごとにリデューサーを追加
+        auth: authReducer,
     },
 })
 
