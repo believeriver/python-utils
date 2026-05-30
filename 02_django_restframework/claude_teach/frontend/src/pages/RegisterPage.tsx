@@ -1,54 +1,52 @@
 import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
-import { loginUser, clearError } from "../features/auth/authSlice";
+import { registerUser, clearError } from "../features/auth/authSlice";
 
 type Props = {
-    onSuccess: () => void   //ログイン成功時のコールバック
-    onRegister: () => void  //登録画面への切り替え
+    onSuccess: () => void   //登録成功時のコールバック
+    onLogin: () => void    //ログイン画面への切り替え
 }
 
-const LoginPage = ({ onSuccess, onRegister }: Props) => {
+const RegisterPage = ({ onSuccess, onLogin }: Props) => {
     const dispatch = useAppDispatch()
-    const { loading, error, isAuthenticated } = 
+    const { loading, error } = 
       useAppSelector((state) => state.auth)
+    
+    const [email, setEmail] = useState<string>('')
+    const [username, setUsername] = useState<string>('')
+    const [password, setPassword] = useState<string>('')
 
-      const [email, setEmail] = useState<string>('')
-      const [password, setPassword] = useState<string>('')
-
-      // ログイン成功時に親コンポーネントに通知
-      useEffect(() => {
-        if (isAuthenticated){
-            onSuccess()
-        }
-      }, [isAuthenticated, onSuccess])
-
-      // 画面を離れる時にエラーをクリア
-      useEffect(() => {
+    useEffect(() => {
         return () => {
             dispatch(clearError())
         }
-      }, [dispatch])
+    }, [dispatch])
 
-      const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault() // フォームのデフォルト送信を防ぐ
-        dispatch(loginUser({ email, password}))
-      }
+        const result = await dispatch(registerUser({ email, username, password }))
 
-      return (
+        // 登録成功時に親コンポーネントに通知
+        if (registerUser.fulfilled.match(result)) {
+            onSuccess() 
+        }
+    }
+
+    return (
         <div style={styles.container}>
             <div style={styles.card}>
-                <h1 style={styles.title}>ログイン</h1>
+                <h1 style={styles.title}>新規登録</h1>
 
                 {error && (
                     <p style={styles.error}>
-                        メールアドレスまたはパスワードが正しくありません。
-                </p>
+                        登録に失敗しました。入力内容を確認してください。
+                    </p>
                 )}
-                
+
                 <form onSubmit={handleSubmit}>
                     <div style={styles.field}>
                         <label>メールアドレス</label>
-                        <input
+                        <input 
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
@@ -56,37 +54,51 @@ const LoginPage = ({ onSuccess, onRegister }: Props) => {
                             required
                         />
                     </div>
+
                     <div style={styles.field}>
-                        <label>パスワード</label>
-                        <input
+                        <label>ユーザー名</label>
+                        <input 
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            style={styles.input}
+                            required
+                        />
+                    </div>
+
+                    <div style={styles.field}>
+                        <label>パスワード（８文字以上）</label>
+                        <input 
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             style={styles.input}
                             required
+                            minLength={8}
                         />
                     </div>
+
                     <button 
-                        type="submit" 
-                        style={styles.button} 
+                        type="submit"
                         disabled={loading}
+                        style={styles.button}
                     >
-                        {loading ? "ログイン中..." : "ログイン"}
+                        {loading ? '登録中...' : '登録する'}
                     </button>
                 </form>
 
-                <p style={{ marginTop: '1rem', textAlign: 'center' }}>
-                    アカウントをお持ちでない方は
-                    <span style={styles.link} onClick={onRegister}>
-                        新規登録
+                <p style={{marginTop: '1rem', textAlign: 'center'}}>
+                    すでにアカウントをお持ちの方は
+                    <span onClick={onLogin} style={styles.link}>
+                        ログイン
                     </span>
                 </p>
             </div>
         </div>
-      )
+    )
+
 }
 
-// インラインスタイル
 const styles: { [key: string]: React.CSSProperties } = {
     container: {
         display: 'flex',
@@ -100,11 +112,11 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: '8px',
         boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
         width: '100%',
-        maxWidth: '400px',
+        maxWidth: '400px', 
     },
     title: {
-        marginBottom: '1.5rem',
         textAlign: 'center',
+        marginBottom: '1.5rem',
     },
     field: {
         marginBottom: '1rem',
@@ -121,7 +133,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     button: {
         width: '100%',
         padding: '10px',
-        backgroundColor: '#4a90e2',
+        backgroundColor: '#27ae60',
         color: '#fff',
         border: 'none',
         borderRadius: '4px',
@@ -143,4 +155,4 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
 }
 
-export default LoginPage;
+export default RegisterPage
