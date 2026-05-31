@@ -1,5 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import {isAxiosError} from "axios";
 import api from "../../api/axiosConfig"; // API呼び出し用のモジュール
+
 
 // Typescript:ユーザー情報の型定義
 type User = {
@@ -35,11 +37,14 @@ export const registerUser = createAsyncThunk(
     try {
       const response = await api.post("/auth/register/", data);
       return response.data; // 成功時はユーザーデータを返す
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error registering user:", error);
-      return rejectWithValue(
-        error.response?.data || "ユーザー登録に失敗しました",
-      ); // 失敗時はエラーメッセージを返す
+      if(isAxiosError(error)){
+          return rejectWithValue(
+            error.response?.data || "ユーザー登録に失敗しました",
+          ); // 失敗時はエラーメッセージを返す
+      }
+      return rejectWithValue('ユーザー登録に失敗しました')
     }
   },
 );
@@ -57,9 +62,13 @@ export const loginUser = createAsyncThunk(
       localStorage.setItem("access_token", access);
       localStorage.setItem("refresh_token", refresh);
       return response.data; // 成功時はユーザーデータを返す
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error logging in:", error);
-      return rejectWithValue(error.response?.data || "ログインに失敗しました"); // 失敗時はエラーメッセージを返す
+      if(isAxiosError(error)){
+          return rejectWithValue(
+            error.response?.data || "ログインに失敗しました"); // 失敗時はエラーメッセージを返す
+      }
+      return rejectWithValue('ログインに失敗しました')
     }
   },
 );
@@ -73,11 +82,14 @@ export const fetchMe = createAsyncThunk(
     try {
       const response = await api.get("/auth/me/");
       return response.data; // 成功時はユーザーデータを返す
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error fetching user info:", error);
-      return rejectWithValue(
-        error.response?.data || "ユーザー情報の取得に失敗しました",
-      ); // 失敗時はエラーメッセージを返す
+      if (isAxiosError(error)){
+          return rejectWithValue(
+            error.response?.data || "ユーザー情報の取得に失敗しました",
+          ); // 失敗時はエラーメッセージを返す
+      }
+      return rejectWithValue('ユーザ情報の取得に失敗しました。')
     }
   },
 );
