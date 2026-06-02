@@ -35,13 +35,52 @@ const LoginPage = ({ onSuccess, onRegister }: Props) => {
       }
 
       return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-            <div className="bg-white rounded-lg shadow-md p-8 w-full max-w-md">
+        <div style={styles.container}>
+            <div style={styles.card}>
+                <h1 style={styles.title}>ログイン</h1>
 
-                <h1 className="text-2x1 font-bold text-center text-gray-800 md-6">
-                    ログイン
-                </h1>
+                {error && (
+                    <p style={styles.error}>
+                        メールアドレスまたはパスワードが正しくありません。
+                </p>
+                )}
+                
+                <form onSubmit={handleSubmit}>
+                    <div style={styles.field}>
+                        <label>メールアドレス</label>
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            style={styles.input}
+                            required
+                        />
+                    </div>
+                    <div style={styles.field}>
+                        <label>パスワード</label>
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            style={styles.input}
+                            required
+                        />
+                    </div>
+                    <button 
+                        type="submit" 
+                        style={styles.button} 
+                        disabled={loading}
+                    >
+                        {loading ? "ログイン中..." : "ログイン"}
+                    </button>
+                </form>
 
+                <p style={{ marginTop: '1rem', textAlign: 'center' }}>
+                    アカウントをお持ちでない方は
+                    <span style={styles.link} onClick={onRegister}>
+                        新規登録
+                    </span>
+                </p>
             </div>
         </div>
       )
