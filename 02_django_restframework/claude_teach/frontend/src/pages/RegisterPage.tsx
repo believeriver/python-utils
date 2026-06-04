@@ -39,6 +39,12 @@ const RegisterPage = ({ onSuccess, onLogin }: Props) => {
                     新規登録
                 </h1>
 
+                {error && (
+                    <div className="bg-red-50 text-red-600 px-4 py-3 rounded mb-4 text-sm">
+                        登録に失敗しました。入力内容を確認してください。
+                    </div>
+                )}
+
             </div>
             
         </div>
