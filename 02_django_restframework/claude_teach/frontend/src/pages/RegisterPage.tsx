@@ -45,11 +45,66 @@ const RegisterPage = ({ onSuccess, onLogin }: Props) => {
                     </div>
                 )}
 
-            </div>
-            
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            メールアドレス
+                        </label>
+                        <input 
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            ユーザー名
+                        </label>
+                        <input 
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            パスワード（８文字以上）
+                        </label>
+                        <input 
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                            required
+                            minLength={8}
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white font-medium rounded-md transition-colors"
+                    >
+                        {loading ? '登録中...' : '登録する'}
+                    </button>
+                </form>
+
+                <p className="mt-4 text-center text-sm text-gray-600">
+                    すでにアカウントお持ちの方は
+                    <span
+                        onClick={onLogin}
+                        className="text-blue-600 hover:underline cursor-pointer ml-1"
+                    >
+                        ログイン
+                    </span>
+                </p>
+            </div>      
         </div>
     )
-
 }
 
 export default RegisterPage
