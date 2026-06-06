@@ -43,8 +43,15 @@ const RegisterPage = ({ onSuccess, onLogin }: Props) => {
                     <div className="bg-red-50 text-red-600 px-4 py-3 rounded mb-4 text-sm">
                         {/* 登録に失敗しました。入力内容を確認してください。 */}
                         {typeof error === 'string'
-                         ? error
-                         : 'このメールアドレスはすでに登録されています'}
+                          ? error
+                          : typeof error === 'object'
+                            ? Object.entries(error).map(([field, messages]) => (
+                                <p key={field}>
+                                    {Array.isArray(messages) ? messages.join(' ') : String(messages)}
+                                </p>
+                            ))
+                            : '登録に失敗しました'
+                        }
                     </div>
                 )}
 
