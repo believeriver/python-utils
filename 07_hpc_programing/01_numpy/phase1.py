@@ -24,7 +24,7 @@ print('行列式　　　：', np.linalg.det(A)) # 行列式
 print('固有値と固有ベクトル：', np.linalg.eig(A)) # 固有値と固有ベクトル
 
 # ブロードキャスト
-v = np.array([10.0, 20.0])
+v = np.array([50.0, 60.0])
 print(A + v)
 
 # スライスとビュー
