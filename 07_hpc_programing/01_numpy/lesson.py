@@ -31,3 +31,4 @@ for N in [5, 10, 20, 50]:
     # A_p = (2 * np.eye(N) - np.eye(N, k=1) - np.eye(N, k=-1)) / h ** 2
     v = np.linalg.eigvalsh(A_p)
     print(f"N={N}:  x = {v[-1]/v[0]:8.1f}")
+
