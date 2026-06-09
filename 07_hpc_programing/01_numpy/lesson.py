@@ -1,34 +1,32 @@
 import numpy as np
+import scipy.sparse as sp
+import scipy.sparse.linalg as spla
+import time
+
+# Step1 蜜行列 vs 疎行列のメモリ比較
+
+for N in [100, 1000, 5000]:
+    dense_mb = N**2 * 8 /1e6
+
+    # ポアソン行列の非ゼロ数：対角にN個、上下にN-1個ずつ
+    nnz = N + 2*(N-1)
+    sparse_mb = nnz * 8 / 1e6 # 値と列インデックスの両方を保存するために16バイト/
+    print(f"N={N:5d} : Dense(密) {dense_mb:8.2f} MB, Sparse(疎) {sparse_mb:8.2f} MB")
+    print(f"削減率={dense_mb/sparse_mb:6.1f}倍\n")
 
 
-# Step1 基本的な固有値分解
+# Step2 : scipy.sparse　でポアソン行列を組立
 
-A = np.array([[3.0, 1.0], [1.0, 3.0]])
-vals, vecs = np.linalg.eig(A)
-print("固有値:", vals)
-print("固有ベクトル:", vecs)
-
-# 検証 A @ e = λ * e
-for i in range(len(vals)):
-    e = vecs[:, i]
-    print(f"λ={vals[i]:.1f}: 残差 = {np.linalg.norm(A @ e - vals[i] * e):.2e}")
-
-
-# step2 条件数 x(A) = λ_max / λ_min
-N = 10
+N = 1000
 h = 1.0 / (N + 1)
-A_p = (2*np.eye(N) - np.eye(N, k=1) - np.eye(N, k=-1))/ h**2
-# A_p = (2*np.eye(N) - np.eye(N,k=1) - np.eye(N,k=-1)) / h**2
 
-vals_p = np.linalg.eigvalsh(A_p) # 対称行列専用（高速・安定）
-kappa = vals_p[-1] / vals_p[0]
-print(f"\nN={N}: λ_max={vals_p[-1]:.1f}, λ_min={vals_p[0]:.1f}, κ={kappa:.1f}")
+# diagsを使って対角行列を作成
+diagonals = [2*np.ones(N), -1*np.ones(N-1), -1*np.ones(N-1)]
+offsets = [0, 1, -1]
+A_sparse = sp.diags(diagonals, offsets, format='csr') / h**2
+b = np.ones(N)
 
-# Nを変えて条件数の変化を観察
-for N in [5, 10, 20, 50]:
-    h = 1.0 / (N + 1)
-    A_p = (2*np.eye(N) - np.eye(N, k=1) - np.eye(N, k=-1)) / h**2
-    # A_p = (2 * np.eye(N) - np.eye(N, k=1) - np.eye(N, k=-1)) / h ** 2
-    v = np.linalg.eigvalsh(A_p)
-    print(f"N={N}:  x = {v[-1]/v[0]:8.1f}")
-
+print(f"\nAの形状：{A_sparse.shape}")
+print(f"非ゼロ要素数：{A_sparse.nnz}")
+print(f"密度：{A_sparse.nnz / (N**2) * 100:.4f}%")
+print(f"メモリ使用量：{A_sparse.data.nbytes / 1e6:.2f} MB")
