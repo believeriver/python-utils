@@ -1,72 +1,48 @@
 import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
-import time
-
-# Step1 蜜行列 vs 疎行列のメモリ比較
-
-for N in [100, 1000, 5000]:
-    dense_mb = N**2 * 8 /1e6
-
-    # ポアソン行列の非ゼロ数：対角にN個、上下にN-1個ずつ
-    nnz = N + 2*(N-1)
-    sparse_mb = nnz * 8 / 1e6 # 値と列インデックスの両方を保存するために16バイト/
-    print(f"N={N:5d} : Dense(密) {dense_mb:8.2f} MB, Sparse(疎) {sparse_mb:8.2f} MB")
-    print(f"削減率={dense_mb/sparse_mb:6.1f}倍\n")
+import matplotlib.pyplot as plt
 
 
-# Step2 : scipy.sparse　でポアソン行列を組立
+# 問題設定
 
-N = 1000
-h = 1.0 / (N + 1)
+N = 50         # 格子点数
+alpha = 1.0    # 熱拡散率
+L = 1.0        # 領域長さ
+h = L / (N + 1) # 格子幅
+x = np.linspace(h, L - h, N)
 
-# diagsを使って対角行列を作成
-diagonals = [2*np.ones(N), -1*np.ones(N-1), -1*np.ones(N-1)]
-offsets = [0, 1, -1]
-A_sparse = sp.diags(diagonals, offsets, format='csr') / h**2
-b = np.ones(N)
+# 初期条件：山形（sin派）
+u0 = np.sin(np.pi * x)
 
-print(f"\nAの形状：{A_sparse.shape}")
-print(f"非ゼロ要素数：{A_sparse.nnz}")
-print(f"密度：{A_sparse.nnz / (N**2) * 100:.4f}%")
-print(f"メモリ使用量：{A_sparse.data.nbytes / 1e6:.2f} MB")
+# 境界条件：両端 u=0（ディリクレ）
 
+# ラプラス演算子の疎行列
+diags = [2*np.ones(N), -np.ones(N-1), -np.ones(N-1)]
+A_sparse = sp.diags(diags, [0,1,-1], format='csr') / h**2
 
-# Step3 : ソルバー比較（前処理なし　vs ILU前処理）
+# Step1: 陽解放（Explicit / Forward Euler)
+# CFL条件を満たすために小さい時間ステップを選ぶ
+dt_stable = 0.4 * h**2 / alpha # 安定境界の40%(余裕を持つ)
+dt_unstable = 2.0 * h**2 / alpha # 安定境界の200%(不安定, 発散する)
+t_end = 0.1
 
-# 収束履歴を記録するコールバック
-residuals_cg = []
-residuals__pcg = []
+def explicit_euler(dt):
+    u = u0.copy()
+    t = 0.0
+    history = [u.copy()]
+    times = [0.0]
+    while t < t_end:
+        u -= dt * alpha * (A_sparse @ u)  # u^{n+1} = u^n - Δt·α·Au^n
+        t += dt
+        if len(history) == 6: # 最初の5ステップだけ保存
+            history.append(u.copy())
+            times.append(t)
+    return u, history, times
 
-def cb_cg(xk):
-    r = A_sparse @ xk - b
-    residuals_cg.append(np.linalg.norm(r))
+u_stable, hist_stable, t_stable = explicit_euler(dt_stable)
+u_unstable, hist_unstable, t_unstable = explicit_euler(dt_unstable)
 
-def cb_pcg(xk):
-    r = A_sparse @ xk - b
-    residuals__pcg.append(np.linalg.norm(r))
+print(f"安定なΔt={dt_stable:.6f}: 最大値={np.max(np.abs(u_stable)):.4f}")
+print(f"不安定Δt={dt_unstable:.6f}: 最大値={np.max(np.abs(u_unstable)):.2e}  ← 発散")
 
-# 前処理なしのCG
-t0 = time.time()
-x_cg, info_cg = spla.cg(A_sparse, b, callback=cb_cg, rtol=1e-9)
-t_cg = time.time() - t0
-
-# ILU前処理を生成
-ilu = spla.spilu(A_sparse.tocsc(), fill_factor=10)
-M = spla.LinearOperator(A_sparse.shape, ilu.solve)
-
-# CG with ILU前処理
-t0 = time.time()
-x_pcg, info_pcg = spla.cg(A_sparse, b, M=M, callback=cb_pcg, rtol=1e-9)
-t_pcg = time.time() - t0
-
-diff = A_sparse - A_sparse.T
-print("対称性チェック:", diff.nnz)
-
-# 最小固有値確認（正定値 = 全固有値 > 0）
-vals = spla.eigsh(A_sparse, k=1, which='SM', return_eigenvectors=False)
-print("最小固有値:", vals[0])  # 正の値なら OK
-
-print(f"\nCG（前処理なし）：{len(residuals_cg):4d} 反復, 時間 {t_cg:.2f} 秒, info={info_cg}")
-print(f"CG（ILU前処理）：{len(residuals__pcg):4d} 反復, 時間 {t_pcg:.2f} 秒, info={info_pcg}")
-print(f"解の最大差：{np.max(np.abs(x_cg - x_pcg)):.2e}")
