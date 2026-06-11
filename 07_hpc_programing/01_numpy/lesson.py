@@ -2,7 +2,10 @@ import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 import matplotlib.pyplot as plt
+import matplotlib
 
+# macOS 日本語フォント設定
+matplotlib.rc('font', family='Hiragino Sans')
 
 # 問題設定
 
@@ -87,3 +90,23 @@ ax.set_title("Explicit Euler (Stable)")
 ax.set_xlabel("x")
 ax.set_ylabel("u")
 ax.legend(fontsize="7")
+
+# 陽解法（不安定）の時間発展
+ax = axes[1]
+for i, (u, t) in enumerate(zip(hist_unstable[:4], t_unstable[:4])):
+    ax.plot(x, u, label=f"t={t:.5f}", alpha=0.8)
+ax.set_title("Explicit Euler (Unstable)")
+ax.set_xlabel("x"); ax.legend(fontsize="7")
+
+# 最終結果の比較
+ax = axes[2]
+ax.plot(x, u_exact, 'k--', label="Exact", linewidth=2)
+ax.plot(x, u_impl, 'r--', label="Implicit", linewidth=2)
+ax.plot(x, u_stable, 'b-', label="Explicit (Stable)", linewidth=2)
+ax.set_title(f't{t_end}')
+ax.set_xlabel("x"); ax.legend()
+
+plt.tight_layout()
+plt.savefig("lesson_heat_diffusion.png")
+plt.show()
+print("\nグラフを lesson_heat_diffusion.png に保存しました。")
