@@ -46,3 +46,32 @@ u_unstable, hist_unstable, t_unstable = explicit_euler(dt_unstable)
 print(f"安定なΔt={dt_stable:.6f}: 最大値={np.max(np.abs(u_stable)):.4f}")
 print(f"不安定Δt={dt_unstable:.6f}: 最大値={np.max(np.abs(u_unstable)):.2e}  ← 発散")
 
+
+# Step2: 陰解放（Implicit / Backward Euler)
+# 安定だが、線形方程式を解く必要がある
+dt_implicit = 0.01 # 陽解法の安定限界より100倍大きい
+I_sparse = sp.eye(N, format='csr')
+
+def implicit_euler(dt):
+    u = u0.copy()
+    t = 0.0
+    history = [u.copy()]
+    times = [0.0]
+    # (I + Δt·α·A) u^{n+1} = u^n  を毎ステップ解く
+    LHS = I_sparse + dt * alpha * A_sparse
+    while t < t_end:
+        u = spla.spsolve(LHS, u)
+        t += dt
+        if len(history) < 6:
+            history.append(u.copy())
+            times.append(t)
+    return u, history, times
+
+u_impl, hist_impl, t_impl = implicit_euler(dt_implicit)
+
+# Step3 : 厳密解との比較
+u_exact = np.exp(-np.pi**2 * alpha * t_end) * np.sin(np.pi * x)
+
+print(f"\n陽解法（安定）vs 厳密解　最大誤差: {np.max(np.abs(u_stable - u_exact)):.2e}")
+print(f"隠解法　　　　vs 厳密解　最大誤差: {np.max(np.abs(u_impl - u_exact)):.2e}")
+
