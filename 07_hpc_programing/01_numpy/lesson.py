@@ -75,3 +75,15 @@ u_exact = np.exp(-np.pi**2 * alpha * t_end) * np.sin(np.pi * x)
 print(f"\n陽解法（安定）vs 厳密解　最大誤差: {np.max(np.abs(u_stable - u_exact)):.2e}")
 print(f"隠解法　　　　vs 厳密解　最大誤差: {np.max(np.abs(u_impl - u_exact)):.2e}")
 
+
+# Step4 : 結果のプロット
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+# 陽解法（安定）の時間発展
+ax = axes[0]
+for i, (u, t) in enumerate(zip(hist_stable, t_stable)):
+    ax.plot(x, u, label=f"t={t:.5f}", alpha=0.8)
+ax.set_title("Explicit Euler (Stable)")
+ax.set_xlabel("x")
+ax.set_ylabel("u")
+ax.legend(fontsize="7")
