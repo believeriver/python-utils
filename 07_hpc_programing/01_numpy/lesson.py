@@ -34,3 +34,15 @@ print(f"密度: {A2d.nnz / (N*N)**2 * 100:.4f}%")
 print(f"疎行列メモリ: {A2d.nnz * 8 / 1e6:.2f} MB")
 print(f"密行列なら:   {(N*N)**2 * 8 / 1e6:.1f} MB")
 
+# ============================================================
+# Step 2: 右辺（ソース項）と境界条件
+# f(x,y) = 2π² sin(πx)sin(πy)
+# 厳密解: u(x,y) = sin(πx)sin(πy)
+# ============================================================
+x = np.linspace(h, 1-h, N)
+y = np.linspace(h, 1-h, N)
+X, Y = np.meshgrid(x, y)
+# print(x, y, X)
+
+f2d = 2 * np.pi**2 * np.sin(np.pi * X) * np.sin(np.pi * Y)
+b = f2d.ravel()  # 2D配列を1Dベクトルに変換
