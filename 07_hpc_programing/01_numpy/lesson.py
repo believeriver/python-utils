@@ -87,3 +87,18 @@ axes[0].set_title('数値解 u(x, y)')
 axes[0].set_xlabel('x'); axes[0].set_ylabel('y')
 plt.colorbar(im0, ax=axes[0])
 
+# 厳密解
+im1 = axes[1].contourf(X, Y, u_exact, levels=20, cmap='hot')
+axes[1].set_title('厳密解 sin(πx)sin(πy)')
+axes[1].set_xlabel('x')
+plt.colorbar(im1, ax=axes[1])
+
+# 誤差分布
+err = np.abs(u2d - u_exact)
+im2 = axes[2].contourf(X, Y, err, levels=20, cmap='Blues')
+axes[2].set_title(f'誤差分布 (最大={err.max():.2e}')
+axes[2].set_xlabel('x')
+plt.colorbar(im2, ax=axes[2])
+
+plt.tight_layout()
+plt.show()
