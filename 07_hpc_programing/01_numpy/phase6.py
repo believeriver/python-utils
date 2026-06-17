@@ -10,9 +10,8 @@ matplotlib.rc('font', family='Hiragino Sans')
 # ∂²u/∂x² + ∂²u/∂y² = -f(x,y)
 # クロネッカー積を使って1D行列から2D行列を構築
 # ============================================================
-
-N = 40
-h = 1.0 /(N+1)
+N = 100             # 各方向の格子点数
+h = 1.0 / (N + 1)  # 格子幅
 
 # 1D ポアソン行列（x方向 or y方向）
 T1d = sp.diags(
@@ -20,12 +19,10 @@ T1d = sp.diags(
     [0, 1, -1], format='csr'
 ) / h**2
 
-# print(T1d)
-
 I_N = sp.eye(N, format='csr')
 
-# 2D ポアソン行列:クロネッカー積で組み立て
-# A2d = T1d @ I + I @ T1d
+# 2D ポアソン行列：クロネッカー積で組み立て
+# A2d = T1d ⊗ I + I ⊗ T1d
 A2d = sp.kron(T1d, I_N) + sp.kron(I_N, T1d)
 
 print(f"行列サイズ: {A2d.shape}")
@@ -42,37 +39,37 @@ print(f"密行列なら:   {(N*N)**2 * 8 / 1e6:.1f} MB")
 x = np.linspace(h, 1-h, N)
 y = np.linspace(h, 1-h, N)
 X, Y = np.meshgrid(x, y)
-# print(x, y, X)
 
-f2d = 2 * np.pi**2 * np.sin(np.pi * X) * np.sin(np.pi * Y)
-b = f2d.ravel()  # 2D配列を1Dベクトルに変換
+# 右辺ベクトル（2D配列 → 1Dに並べる）
+f2d = 2 * np.pi**2 * np.sin(np.pi*X) * np.sin(np.pi*Y)
+b   = f2d.ravel()   # (N×N,) の1Dベクトルに変換
 
 # ============================================================
 # Step 3: 解く（直接法 vs CG+ILU）
 # ============================================================
 import time
+
 # 直接法
 t0 = time.time()
 u_direct = spla.spsolve(A2d, b)
-print(f"\n直接法の計算時間: {time.time() - t0:.3f} 秒")
+print(f"\n直接法: {time.time()-t0:.3f}秒")
 
-# ILU前処理つきCG
+# ILU前処理付きCG
 ilu = spla.spilu(A2d.tocsc(), fill_factor=10)
-M = spla.LinearOperator(A2d.shape, ilu.solve)
+M   = spla.LinearOperator(A2d.shape, ilu.solve, dtype=float)
 
 iters = [0]
-
 def cb(xk): iters[0] += 1
 
 t0 = time.time()
 u_cg, info = spla.cg(A2d, b, M=M, rtol=1e-9, callback=cb)
-print(f"CGの計算時間: {time.time() - t0:.3f} 秒, 反復回数: {iters[0]}")
+print(f"CG+ILU: {time.time()-t0:.3f}秒  {iters[0]}反復")
 
 # ============================================================
 # Step 4: 厳密解との比較
 # ============================================================
-u_exact = np.sin(np.pi * X) * np.sin(np.pi * Y)
-u2d = u_direct.reshape(N, N)
+u_exact = np.sin(np.pi*X) * np.sin(np.pi*Y)
+u2d     = u_direct.reshape(N, N)
 
 print(f"\n最大誤差（直接法）: {np.max(np.abs(u2d - u_exact)):.2e}")
 
@@ -83,7 +80,7 @@ fig, axes = plt.subplots(1, 3, figsize=(15, 4))
 
 # 数値解
 im0 = axes[0].contourf(X, Y, u2d, levels=20, cmap='hot')
-axes[0].set_title('数値解 u(x, y)')
+axes[0].set_title('数値解 u(x,y)')
 axes[0].set_xlabel('x'); axes[0].set_ylabel('y')
 plt.colorbar(im0, ax=axes[0])
 
@@ -96,9 +93,10 @@ plt.colorbar(im1, ax=axes[1])
 # 誤差分布
 err = np.abs(u2d - u_exact)
 im2 = axes[2].contourf(X, Y, err, levels=20, cmap='Blues')
-axes[2].set_title(f'誤差分布 (最大={err.max():.2e}')
+axes[2].set_title(f'誤差分布（最大={err.max():.2e}）')
 axes[2].set_xlabel('x')
 plt.colorbar(im2, ax=axes[2])
 
 plt.tight_layout()
+plt.savefig('poisson_2d.png', dpi=120)
 plt.show()
