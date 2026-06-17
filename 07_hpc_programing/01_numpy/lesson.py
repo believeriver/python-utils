@@ -46,3 +46,44 @@ X, Y = np.meshgrid(x, y)
 
 f2d = 2 * np.pi**2 * np.sin(np.pi * X) * np.sin(np.pi * Y)
 b = f2d.ravel()  # 2D配列を1Dベクトルに変換
+
+# ============================================================
+# Step 3: 解く（直接法 vs CG+ILU）
+# ============================================================
+import time
+# 直接法
+t0 = time.time()
+u_direct = spla.spsolve(A2d, b)
+print(f"\n直接法の計算時間: {time.time() - t0:.3f} 秒")
+
+# ILU前処理つきCG
+ilu = spla.spilu(A2d.tocsc(), fill_factor=10)
+M = spla.LinearOperator(A2d.shape, ilu.solve)
+
+iters = [0]
+
+def cb(xk): iters[0] += 1
+
+t0 = time.time()
+u_cg, info = spla.cg(A2d, b, M=M, rtol=1e-9, callback=cb)
+print(f"CGの計算時間: {time.time() - t0:.3f} 秒, 反復回数: {iters[0]}")
+
+# ============================================================
+# Step 4: 厳密解との比較
+# ============================================================
+u_exact = np.sin(np.pi * X) * np.sin(np.pi * Y)
+u2d = u_direct.reshape(N, N)
+
+print(f"\n最大誤差（直接法）: {np.max(np.abs(u2d - u_exact)):.2e}")
+
+# ============================================================
+# Step 5: 可視化
+# ============================================================
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+# 数値解
+im0 = axes[0].contourf(X, Y, u2d, levels=20, cmap='hot')
+axes[0].set_title('数値解 u(x, y)')
+axes[0].set_xlabel('x'); axes[0].set_ylabel('y')
+plt.colorbar(im0, ax=axes[0])
+
