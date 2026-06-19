@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { loginUser, clearError } from "../features/auth/authSlice";
 
-const LoginPage = () => {
-    const navigate = useNavigate()
+type Props = {
+    onSuccess: () => void   //ログイン成功時のコールバック
+    onRegister: () => void  //登録画面への切り替え
+}
+
+const LoginPage = ({ onSuccess, onRegister }: Props) => {
     const dispatch = useAppDispatch()
     const { loading, error, isAuthenticated } = 
       useAppSelector((state) => state.auth)
@@ -15,14 +18,15 @@ const LoginPage = () => {
       // ログイン成功時に親コンポーネントに通知
       useEffect(() => {
         if (isAuthenticated){
-            navigate('/market')
+            onSuccess()
         }
-      }, [isAuthenticated, navigate])
+      }, [isAuthenticated, onSuccess])
 
       // 画面を離れる時にエラーをクリア
       useEffect(() => {
         return () => {
-            dispatch(clearError())}
+            dispatch(clearError())
+        }
       }, [dispatch])
 
       const handleSubmit = async (e: React.FormEvent) => {
@@ -40,9 +44,7 @@ const LoginPage = () => {
 
                 {error && (
                     <div className="bg-red-50 text-red-600 px-5 py-3 rounded mb-4 text-sm">
-                        {typeof error === 'string'
-                          ? error
-                          : 'メールアドレスまたはパスワードが正しくありません'}
+                        メールアドレスまたはパスワードが正しくありません
                     </div>
                 )}
 
@@ -81,16 +83,12 @@ const LoginPage = () => {
 
                 <p className="mt-4 text-center text-sm text-gray-600">
                     アカウントをお持ちでない方は
-                    {/* <span
+                    <span
                         onClick={onRegister}
                         className="text-blue-600 hover:underline cursor-pointer ml-1"
                     >
                         新規登録
-                    </span> */}
-                    {/* Link : <a> タグの代わり、ページ全体をリロードせず遷移する */}
-                    <Link to="/register" className="text-blue-600 hover:underline ml-1">
-                        新規登録
-                    </Link>
+                    </span>
                 </p>
             </div>
         </div>
