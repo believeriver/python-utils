@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { registerUser, clearError } from "../features/auth/authSlice";
 
-type Props = {
-    onSuccess: () => void   //登録成功時のコールバック
-    onLogin: () => void    //ログイン画面への切り替え
-}
 
-const RegisterPage = ({ onSuccess, onLogin }: Props) => {
+const RegisterPage = () => {
+    const navigate = useNavigate()
     const dispatch = useAppDispatch()
     const { loading, error } = 
       useAppSelector((state) => state.auth)
@@ -18,8 +16,7 @@ const RegisterPage = ({ onSuccess, onLogin }: Props) => {
 
     useEffect(() => {
         return () => {
-            dispatch(clearError())
-        }
+            dispatch(clearError())}
     }, [dispatch])
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -28,7 +25,7 @@ const RegisterPage = ({ onSuccess, onLogin }: Props) => {
 
         // 登録成功時に親コンポーネントに通知
         if (registerUser.fulfilled.match(result)) {
-            onSuccess() 
+            navigate('/login')
         }
     }
 
@@ -105,12 +102,15 @@ const RegisterPage = ({ onSuccess, onLogin }: Props) => {
 
                 <p className="mt-4 text-center text-sm text-gray-600">
                     すでにアカウントお持ちの方は
-                    <span
+                    {/* <span
                         onClick={onLogin}
                         className="text-blue-600 hover:underline cursor-pointer ml-1"
                     >
                         ログイン
-                    </span>
+                    </span> */}
+                    <Link to="/login" className="text-blue-600 hover:underline ml-1">
+                        ログイン
+                    </Link>
                 </p>
             </div>      
         </div>
