@@ -54,18 +54,18 @@ const MarketPage = () => {
                             <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">ランキング</th>
                         </tr>
                     </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {companies.map((company) => (
+                            <tr key={company.code} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-sm">{company.code}</td>
+                                <td className="px-4 py-3 text-sm">{company.name}</td>
+                                <td className="px-4 py-3 text-sm">{company.stock}</td>
+                                <td className="px-4 py-3 text-sm">{company.dividend_yield}</td>
+                                <td className="px-4 py-3 text-sm">{company.rank}</td>
+                            </tr>
+                        ))}
+                    </tbody>
                 </table>
-                <tbody className="divide-y divide-gray-100">
-                    {companies.map((company) => (
-                        <tr key={company.code} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm">{company.code}</td>
-                            <td className="px-4 py-3 text-sm">{company.name}</td>
-                            <td className="px-4 py-3 text-sm">{company.stock}</td>
-                            <td className="px-4 py-3 text-sm">{company.dividend_yield}</td>
-                            <td className="px-4 py-3 text-sm">{company.rank}</td>
-                        </tr>
-                    ))}
-                </tbody>
             </div>
         </div>
     )
