@@ -2,22 +2,16 @@ import asyncio
 import random
 import time
 
-from oauthlib.uri_validate import host
-
-
-class FakeSSHConnection(object):
+class FakeSSHConnection:
     def __init__(self, host: str):
         self.host = host
 
     async def __aenter__(self):
-        # "async with X() as conn:" の "as conn" にあたる部分。
-        # ここで実際の接続処理(時間がかかる想定)を行う。
         await asyncio.sleep(random.uniform(0.05, 0.2))
-        return self # as の後の変数に渡されるオブジェクト
+        return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await asyncio.sleep(0.02) # 切断にかかる時間を模擬
-        # Falseを返す(または何も返さない)と、例外はそのまま外に伝播する
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await asyncio.sleep(0.02)  # 切断処理
 
     async def run_command(self, command: str) -> dict:
         await asyncio.sleep(random.uniform(0.05, 0.2))
@@ -34,7 +28,7 @@ async def fetch_one(host: str) -> dict:
 
 
 async def main():
-    hosts = [f"switch-{i:03d}" for i in range(1, 51)] # 50台
+    hosts = [f"switch-{i:03d}" for i in range(1, 51)]  # 50台
 
     start = time.perf_counter()
     results = await asyncio.gather(
