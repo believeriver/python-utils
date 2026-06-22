@@ -2,8 +2,6 @@ import asyncio
 import random
 import time
 
-from oauthlib.uri_validate import host
-
 
 class FakeSSHConnection(object):
     def __init__(self, host: str):
