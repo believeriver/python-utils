@@ -1,4 +1,12 @@
 import logging
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent          # config.pyがあるフォルダ = プロジェクトルート
+DATA_DIR = BASE_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)                        # 初回起動時にdataフォルダがなければ作成
+
+DB_PATH = DATA_DIR / "network_monitor.db"
 
 
 # -----------------------------
@@ -35,6 +43,9 @@ class Config(object):
 
     # THREADING
     MAX_WORKERS = 3
+
+    # DATABASE
+    DB_URL = f"sqlite:///{DB_PATH.as_posix()}"
 
 
 # -----------------------------
