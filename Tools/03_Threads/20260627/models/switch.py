@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config, setup_logger
 from models.db import BaseDatabase, database
 
-logger = setup_logger("Switch", Config.LOGGER_LEVEL)
+logger = setup_logger("Switch", Config.LEVEL)
 
 
 class Switch(BaseDatabase):

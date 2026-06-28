@@ -17,7 +17,7 @@ class Database(object):
             self.url,
             echo=False,
             connect_args={"check_same_thread": False})
-        self.log = self._set_logger(level=Config.LOGGER_LEVEL)
+        self.log = self._set_logger(level=Config.LEVEL)
         # logger.info({'action': 'db.py', 'db': self.url})
         self.connect_db()
 
