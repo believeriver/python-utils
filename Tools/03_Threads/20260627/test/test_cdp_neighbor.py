@@ -13,31 +13,65 @@ def print_json(label, data):
     print(json.dumps(data, indent=2, ensure_ascii=False, default=str))
 
 
-def test_sync_topology():
-    sw1 = Switch.get_or_create(
-        hostname="sw-3f-edge-01", ip_address="192.168.10.11",
-        hardware_model="C2960L", switch_type="L2", role="edge",
-        base_mac_address="aa:bb:cc:dd:ee:01",
+def test_topology():
+    # スイッチ登録
+    # test_cdp_neighbor.py の Switch.get_or_create部分を修正
+    core = Switch.get_or_create(
+        hostname="core-sw01", ip_address="192.168.1.1",
+        hardware_model="C3850", switch_type="L3", role="core",
+        base_mac_address="aa:bb:cc:00:00:01",
     )
-    sw2 = Switch.get_or_create(
-        hostname="sw-3f-edge-02", ip_address="192.168.10.12",
+    sw01 = Switch.get_or_create(
+        hostname="edge-sw01", ip_address="192.168.10.21",  # .11 → .21 に変更
         hardware_model="C2960L", switch_type="L2", role="edge",
-        base_mac_address="aa:bb:cc:dd:ee:02",
+        base_mac_address="aa:bb:cc:00:00:02",
+    )
+    sw02 = Switch.get_or_create(
+        hostname="edge-sw02", ip_address="192.168.10.22",  # .12 → .22 に変更
+        hardware_model="C2960L", switch_type="L2", role="edge",
+        base_mac_address="aa:bb:cc:00:00:03",
     )
 
-    # chassis_macで名前解決できるケース
-    CdpNeighbor.sync_from_collection(sw1.id, [
+    # core-sw01 側から見た隣接情報
+    CdpNeighbor.sync_from_collection(core.id, [
         {
-            "local_interface": "Gi1/0/24",
-            "neighbor_hostname_raw": "sw-3f-edge-02.example.local",
-            "neighbor_interface": "Gi0/1",
-            "neighbor_platform": "cisco WS-C2960L",
-            "neighbor_chassis_mac": "aa:bb:cc:dd:ee:02",
+            "local_interface": "Gi1/0/1", "neighbor_hostname_raw": "edge-sw01",
+            "neighbor_interface": "Gi0/1", "neighbor_platform": "cisco WS-C2960L",
+            "neighbor_chassis_mac": "aa:bb:cc:00:00:02",
+        },
+        {
+            "local_interface": "Gi1/0/2", "neighbor_hostname_raw": "edge-sw02",
+            "neighbor_interface": "Gi0/1", "neighbor_platform": "cisco WS-C2960L",
+            "neighbor_chassis_mac": "aa:bb:cc:00:00:03",
         },
     ])
 
-    print_json("トポロジー一覧", CdpNeighbor.fetch_topology())
+    # edge-sw01 側から見た隣接情報（逆方向 + 未解決のIP電話も含む）
+    CdpNeighbor.sync_from_collection(sw01.id, [
+        {
+            "local_interface": "Gi0/1", "neighbor_hostname_raw": "core-sw01",
+            "neighbor_interface": "Gi1/0/1", "neighbor_platform": "cisco WS-C3850",
+            "neighbor_chassis_mac": "aa:bb:cc:00:00:01",
+        },
+        {
+            "local_interface": "Gi0/10", "neighbor_hostname_raw": "SEP001122334455",  # IP電話
+            "neighbor_interface": None, "neighbor_platform": "Cisco IP Phone",
+            "neighbor_chassis_mac": None,
+        },
+    ])
+
+    # edge-sw02 側から見た隣接情報
+    CdpNeighbor.sync_from_collection(sw02.id, [
+        {
+            "local_interface": "Gi0/1", "neighbor_hostname_raw": "core-sw01",
+            "neighbor_interface": "Gi1/0/2", "neighbor_platform": "cisco WS-C3850",
+            "neighbor_chassis_mac": "aa:bb:cc:00:00:01",
+        },
+    ])
+
+    print_json("ノード一覧", CdpNeighbor.fetch_topology_nodes())
+    print_json("エッジ一覧(重複排除済み)", CdpNeighbor.fetch_topology_edges())
 
 
 if __name__ == "__main__":
-    test_sync_topology()
+    test_topology()

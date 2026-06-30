@@ -15,7 +15,7 @@ class Switch(BaseDatabase):
     __tablename__ = "switches"
 
     hostname = Column(String(64), unique=True, nullable=False)
-    ip_address = Column(String(45), unique=True, nullable=False)
+    ip_address = Column(String(45), nullable=False)
     hardware_model = Column(String(32), nullable=False)
     base_mac_address = Column(String(17), nullable=True)
     service_tag = Column(String(32), unique=True, nullable=True)

@@ -149,6 +149,71 @@ class CdpNeighbor(BaseDatabase):
         session.close()
         return result
 
+    @staticmethod
+    def fetch_topology_edges() -> list:
+        """
+        トポロジー描画用に、双方向リンクの重複を排除した辺リストを返す。
+
+        戻り値の例:
+        [
+            {
+                "switch_a": "core-sw01",
+                "port_a": "Gi1/0/1",
+                "switch_b": "edge-sw01",
+                "port_b": "Gi0/1",
+                "resolved": True,
+                "confirmed_both_sides": True,
+            },
+            ...
+        ]
+        """
+        session = database.connect_db()
+        rows = session.query(CdpNeighbor).all()
+
+        edges = {}
+        for row in rows:
+            sw_a = row.switch.hostname
+            sw_b = row.resolved_switch.hostname if row.resolved_switch else row.neighbor_hostname_raw
+
+            key = frozenset([sw_a, sw_b])
+
+            if key not in edges:
+                edges[key] = {
+                    "switch_a": sw_a,
+                    "port_a": row.local_interface,
+                    "switch_b": sw_b,
+                    "port_b": row.neighbor_interface,
+                    "resolved": row.resolved_switch is not None,
+                    "confirmed_both_sides": False,
+                }
+            else:
+                edges[key]["confirmed_both_sides"] = True
+
+        session.close()
+        return list(edges.values())
+
+    @staticmethod
+    def fetch_topology_nodes() -> list:
+        """
+        トポロジー描画用ノードリストを返す。
+        インベントリに登録済みのスイッチ + 未解決の隣接機器(IP電話・AP等)を含む。
+        """
+        session = database.connect_db()
+        rows = session.query(CdpNeighbor).all()
+
+        # インベントリ登録済みノード
+        known = {row.switch.hostname for row in rows}
+        known |= {row.resolved_switch.hostname for row in rows if row.resolved_switch}
+
+        # 未解決ノード(resolved_switch_idがNullのもの)
+        unknown = {row.neighbor_hostname_raw for row in rows if row.resolved_switch is None}
+
+        session.close()
+
+        nodes = [{"hostname": h, "resolved": True} for h in known]
+        nodes += [{"hostname": h, "resolved": False} for h in unknown]
+        return nodes
+
 
 class CdpNeighborHistory(BaseDatabase):
     """履歴：隣接機器が変わった/消えた時だけ1行追加"""
