@@ -4,8 +4,19 @@ import json
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from models.db import database
 from models.switch import Switch
-from models.cdp_neighbor import CdpNeighbor
+from models.cdp_neighbor import CdpNeighbor, CdpNeighborHistory
+
+
+def setup():
+    """テスト前にCDP関連テーブルをクリア（switches は残す）"""
+    session = database.connect_db()
+    session.query(CdpNeighborHistory).delete()
+    session.query(CdpNeighbor).delete()
+    session.query(Switch).delete()
+    session.commit()
+    session.close()
 
 
 def print_json(label, data):

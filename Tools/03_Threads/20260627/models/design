@@ -123,3 +123,8 @@ class ArpEntry(Base):
 
     switch = relationship("Switch")
 
+
+
+pip install sqlalchemy
+pip install pysnmp
+pip install streamlit-authenticator pyyaml
