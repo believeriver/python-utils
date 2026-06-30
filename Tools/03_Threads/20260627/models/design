@@ -125,6 +125,14 @@ class ArpEntry(Base):
 
 
 
+ーーー
+環境構築メモ
+
 pip install sqlalchemy
 pip install pysnmp
 pip install streamlit-authenticator pyyaml
+pip install streamlit
+
+# 一度だけ実行してハッシュを config.yaml に貼る
+import streamlit_authenticator as stauth
+print(stauth.Hasher(["実際のパスワード"]).generate())
