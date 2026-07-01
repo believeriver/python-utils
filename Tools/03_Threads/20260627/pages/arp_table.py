@@ -203,10 +203,18 @@ def main():
     authenticator = setup_authenticator(config)
 
     # ---- ログインフォーム ----
-    name, auth_status, username = authenticator.login(
-        form_name="ログイン",
-        location="main",
-    )
+    # name, auth_status, username = authenticator.login(
+    #     form_name="ログイン",
+    #     location="main",
+    # )
+    result = authenticator.login(location="main")
+
+    if result is not None:
+        name, auth_status, username = result
+    else:
+        name = st.session_state.get("name")
+        auth_status = st.session_state.get("authentication_status")
+        username = st.session_state.get("username")
 
     # ---- 認証結果ハンドリング ----
     if auth_status is True:

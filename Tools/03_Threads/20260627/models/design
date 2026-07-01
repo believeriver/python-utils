@@ -130,6 +130,7 @@ class ArpEntry(Base):
 
 pip install sqlalchemy
 pip install pysnmp
+pip install "pysnmp==4.4.12" "pyasn1==0.4.8"
 pip install streamlit-authenticator pyyaml
 pip install streamlit
 
