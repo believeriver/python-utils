@@ -1,9 +1,9 @@
 credentials:
   usernames:
     tagawa:
-      name: Tagawa Nobuyuki
+      name: admin
       # パスワード生成: python -c "import streamlit_authenticator as sa; print(sa.Hasher(['password']).generate())"
-      password: "test@12345"
+      password: "admin"
       role: admin           # admin / viewer
     viewer01:
       name: 閲覧ユーザー01
