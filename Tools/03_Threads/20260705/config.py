@@ -31,6 +31,7 @@ class Config(object):
         "FetchLSDFExecutor",
         "FetchPWDExecutor",
     ]
+
     reporter_class_list = [
         "ReporterSample",]
 
@@ -46,6 +47,12 @@ class Config(object):
 
     # DATABASE
     DB_URL = f"sqlite:///{DB_PATH.as_posix()}"
+    EXECUTOR_TO_SAVER = {
+        "FetchMacTableExecutor": "MacAddressDBSaver",
+        "FetchCdpExecutor": "CdpNeighborDBSaver",
+        "FetchArpExecutor": "ArpDBSaver",
+        "FetchInventoryExecutor": "InventoryDBSaver",
+    }
 
 
 # -----------------------------

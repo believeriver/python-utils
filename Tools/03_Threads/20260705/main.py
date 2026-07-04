@@ -89,7 +89,13 @@ def main(argv):
                      executor_cls=executor,
                      reporter_cls=reporter,
                      level=log_level)
-        print(results)
+        # print(results)
+        saver_name = Config.EXECUTOR_TO_SAVER.get(Config.EXECUTOR_CLS)
+        if saver_name:
+            saver_cls = getattr(sys.modules[__name__], saver_name, None)
+            if saver_cls:
+                saver_cls.save_results(results)
+
     else:
         # NO threading version
         main_single(_targets=targets, executor_cls=executor, level=log_level)
