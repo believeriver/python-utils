@@ -1,6 +1,6 @@
 credentials:
   usernames:
-    tagawa:
+    admin:
       name: admin
       # パスワード生成: python -c "import streamlit_authenticator as sa; print(sa.Hasher(['password']).generate())"
       password: "admin"
