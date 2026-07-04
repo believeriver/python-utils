@@ -98,3 +98,33 @@ def _normalize_mac(mac: str) -> str:
     if len(hex_only) != 12:
         return mac  # 変換できない場合はそのまま返す
     return ":".join(hex_only[i:i+2] for i in range(0, 12, 2))
+
+
+# parsers/parse.py に追加
+
+def parse_show_version(lines: List[str]) -> Dict:
+    """
+    show version から機種・ファームウェア・base MACを抽出
+    """
+    text = "\n".join(lines)
+    return {
+        "hardware_model": _extract(text, r"[Cc]isco (WS-\S+|C\d{4}\S*)"),
+        "firmware_version": _extract(text, r"Version\s+([\d.\(\)A-Za-z]+),"),
+        "base_mac_address": _normalize_mac(
+            _extract(text, r"[Bb]ase [Ee]thernet MAC [Aa]ddress\s*:\s*(\S+)")
+        ),
+    }
+
+
+def parse_show_inventory(lines: List[str]) -> Dict:
+    """
+    show inventory からシャーシのサービスタグ(SN)を抽出
+    NAME: "1", DESCR: "..."
+    PID: WS-C2960L-8TS-LL, VID: V01, SN: FOCxxxxxxx
+    """
+    text = "\n".join(lines)
+    # 最初のブロック(NAME: "1" = シャーシ本体)のSNのみ拾う
+    m = re.search(r'NAME:\s*"1".*?SN:\s*(\S+)', text, re.DOTALL)
+    return {
+        "service_tag": m.group(1) if m else None,
+    }

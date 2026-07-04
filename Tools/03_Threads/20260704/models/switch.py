@@ -19,6 +19,7 @@ class Switch(BaseDatabase):
     hardware_model = Column(String(32), nullable=False)
     base_mac_address = Column(String(17), nullable=True)
     service_tag = Column(String(32), unique=True, nullable=True)
+    firmware_version = Column(String(32), nullable=True)
     location = Column(String(128), nullable=True)
     switch_type = Column(String(8), nullable=False)     # "L2" / "L3"
     role = Column(String(16), nullable=False)            # "floor" / "edge" / "core"
@@ -86,3 +87,23 @@ class Switch(BaseDatabase):
         }
         session.close()
         return result
+
+    # models/switch.py に追加
+
+    @staticmethod
+    def update_hardware_info(hostname: str, **fields) -> None:
+        """show version/show inventoryの結果でハードウェア情報を上書きする"""
+        session = database.connect_db()
+        row = session.query(Switch).filter(Switch.hostname == hostname).first()
+        if row is None:
+            session.close()
+            logger.warning(f"update_hardware_info: switch not found: {hostname}")
+            return
+
+        for key, value in fields.items():
+            if value:  # 取得できなかった項目(None)で上書きしない
+                setattr(row, key, value)
+
+        session.commit()
+        session.close()
+        logger.info(f"hardware info updated: {hostname}")
