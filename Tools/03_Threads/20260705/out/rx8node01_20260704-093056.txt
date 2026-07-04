@@ -1,0 +1,6 @@
+pwd
+[root@rx8node01 ~]# pwd
+/root
+[root@rx8node01 ~]# hostname
+rx8node01
+[root@rx8node01 ~]# 

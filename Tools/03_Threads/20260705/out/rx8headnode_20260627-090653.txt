@@ -1,0 +1,6 @@
+pwd
+[root@rx8manage ~]# pwd
+/root
+[root@rx8manage ~]# hostname
+rx8manage
+[root@rx8manage ~]# 
