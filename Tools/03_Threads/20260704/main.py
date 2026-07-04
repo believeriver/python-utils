@@ -14,7 +14,8 @@ import gc
 from rpds.rpds import Queue
 
 from config import Config, setup_logger
-from utils import SwitchListDataset, IReporterInterface, ReporterSample
+from utils import SwitchListDataset
+from reporter import IReporterInterface, ReporterSample
 from executor import (
     ISSHExecutorInterface,
     FetchFileListExecutor,
