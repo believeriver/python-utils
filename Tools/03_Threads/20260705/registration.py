@@ -137,7 +137,7 @@ def main(argv):
 
     elif step == "2":
         # print("[INFO] ステップ2(実機収集)は未実装です")
-        dataset = SwitchListDataset()
+        dataset = SwitchListDataset(targets_file)
         collect_hardware_info(targets=dataset.targets_list, workers=Config.MAX_WORKERS)
 
     else:

@@ -18,9 +18,12 @@ class SwitchListDataset(object):
     folder: settings
     file: config.ini
     """
-    def __init__(self):
+    def __init__(self, _targets_file=None):
         cur_dir = os.getcwd()
-        self.targets_file = os.path.join(cur_dir, Config.SETTINGS_DIR, Config.CONFIG_FILE)
+        if _targets_file is not None:
+            self.targets_file = _targets_file
+        else:
+            self.targets_file = os.path.join(cur_dir, Config.SETTINGS_DIR, Config.CONFIG_FILE)
         self.targets_list = []
         self.import_config()
 
