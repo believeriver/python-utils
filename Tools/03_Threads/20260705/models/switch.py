@@ -111,3 +111,24 @@ class Switch(BaseDatabase):
         session.commit()
         session.close()
         logger.info(f"hardware info updated: {hostname}")
+
+    @staticmethod
+    def fetch_by_ip(ip_address: str) -> Optional[dict]:
+        """IPアドレスからホスト名を逆引きする(is_active=Trueのみ対象)"""
+        session = database.connect_db()
+        row = session.query(Switch).filter(
+            Switch.ip_address == ip_address,
+            Switch.is_active == True,
+        ).first()
+        if row is None:
+            session.close()
+            return None
+        result = {
+            "id": row.id,
+            "hostname": row.hostname,
+            "ip_address": row.ip_address,
+            "role": row.role,
+        }
+        session.close()
+        return result
+    
