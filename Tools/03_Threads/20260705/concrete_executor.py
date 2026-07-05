@@ -41,7 +41,8 @@ class FetchPWDExecutor(ISSHExecutorInterface):
 
 # -----------------------------
 # Switch Inventory Fetch Executor.
-
+# use get_profile() to determine the command set based on hardware_model.
+# -----------------------------
 
 class FetchInventoryExecutor(ISSHExecutorInterface):
     @staticmethod
