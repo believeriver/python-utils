@@ -194,6 +194,7 @@ class ServerInfo:
     hostname: str = None
     username: str = Config.USERNAME
     password: str = Config.PASSWORD
+    hardware_model: str = "unknown" # added for future use
     port: int = Config.PORT
     timeout: int = Config.TIMEOUT
 
@@ -262,9 +263,9 @@ class ISSHExecutorInterface(ABC):
         """
         pass
 
-    @staticmethod
+    # @staticmethod
     @abstractmethod
-    def build_command() -> List[str]:
+    def build_command(self) -> List[str]:
         pass
 
     @property

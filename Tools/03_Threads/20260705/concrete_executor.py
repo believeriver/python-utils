@@ -1,6 +1,7 @@
 from typing import List
 
 from executor import ParamikoSSHClient, SSHClientSubprocess,ISSHExecutorInterface
+from device_profiles import get_profile
 
 
 # -----------------------------
@@ -19,8 +20,7 @@ class FetchPWDExecutor(ISSHExecutorInterface):
     def build_ssh_client_cls():
         return ParamikoSSHClient
 
-    @staticmethod
-    def build_command() -> List[str]:
+    def build_command(self) -> List[str]:
         return [
             "pwd",
             "hostname"
@@ -39,17 +39,18 @@ class FetchPWDExecutor(ISSHExecutorInterface):
         return result
 
 
+# -----------------------------
+# Switch Inventory Fetch Executor.
+
+
 class FetchInventoryExecutor(ISSHExecutorInterface):
     @staticmethod
     def build_ssh_client_cls():
         return ParamikoSSHClient
 
-    @staticmethod
-    def build_command() -> List[str]:
-        return [
-            "show version",
-            "show inventory",
-        ]
+    def build_command(self) -> List[str]:
+        profile = get_profile(self.server_info.hardware_model)
+        return profile.PRE_COMMANDS + profile.INVENTORY_CMDS
 
     @property
     def name(self) -> str:
@@ -58,7 +59,7 @@ class FetchInventoryExecutor(ISSHExecutorInterface):
     def execute_command(self):
         self.execute()
         self.write_log()
-        return self.result  # スライスせず全行返す
+        return self.result
 
 
 class FetchCdpExecutor(ISSHExecutorInterface):
@@ -66,11 +67,9 @@ class FetchCdpExecutor(ISSHExecutorInterface):
     def build_ssh_client_cls():
         return ParamikoSSHClient
 
-    @staticmethod
-    def build_command() -> List[str]:
-        return [
-            "show cdp neighbors detail",
-        ]
+    def build_command(self) -> List[str]:
+        profile = get_profile(self.server_info.hardware_model)
+        return profile.PRE_COMMANDS + [profile.CDP_CMD]
 
     @property
     def name(self) -> str:
@@ -81,16 +80,15 @@ class FetchCdpExecutor(ISSHExecutorInterface):
         self.write_log()
         return self.result
 
+
 class FetchMacTableExecutor(ISSHExecutorInterface):
     @staticmethod
     def build_ssh_client_cls():
         return ParamikoSSHClient
 
-    @staticmethod
-    def build_command() -> List[str]:
-        return [
-            "show mac address-table",
-        ]
+    def build_command(self) -> List[str]:
+        profile = get_profile(self.server_info.hardware_model)
+        return profile.PRE_COMMANDS + [profile.MAC_TABLE_CMD]
 
     @property
     def name(self) -> str:
@@ -107,17 +105,24 @@ class FetchArpExecutor(ISSHExecutorInterface):
     def build_ssh_client_cls():
         return ParamikoSSHClient
 
-    @staticmethod
-    def build_command() -> List[str]:
-        return [
-            "show ip arp",
-        ]
+    def build_command(self) -> List[str]:
+        profile = get_profile(self.server_info.hardware_model)
+        if not profile.SUPPORTS_ARP:
+            return []
+        return profile.PRE_COMMANDS + [profile.ARP_CMD]
 
     @property
     def name(self) -> str:
         return "FetchArpExecutor"
 
     def execute_command(self):
+        commands = self.build_command()
+        if not commands:
+            self.logger.info(
+                f"{self.server_info.hostname}: hardware_model="
+                f"{self.server_info.hardware_model} はARP非対応のためスキップ"
+            )
+            return []
         self.execute()
         self.write_log()
         return self.result

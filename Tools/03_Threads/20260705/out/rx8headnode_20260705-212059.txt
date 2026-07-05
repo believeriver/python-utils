@@ -1,0 +1,4 @@
+terminal length 0
+ash: terminal: コマンドが見つかりませんでした...
+show version
+show inventory

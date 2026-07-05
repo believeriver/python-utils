@@ -7,7 +7,7 @@ from typing import List, Type
 from config import Config, setup_logger
 from reporter import IReporterInterface, ReporterSample
 from executor import ISSHExecutorInterface, ServerInfo
-
+from models.switch import Switch
 
 #-----------------------------
 # Thread Worker
@@ -103,11 +103,17 @@ def set_queue(_targets: List[dict]):
         if password == "" or password is None:
             password = Config.PASSWORD
 
+        # add
+        hostname = t.get("hostname", None)
+        switch = Switch.fetch_by_hostname(hostname) if hostname else None
+        hardware_model = switch["hardware_model"] if switch else "unknown"
+
         server_info = ServerInfo(
             ipaddr=t.get("ipaddr", None),
-            hostname=t.get("hostname", None),
+            hostname=hostname,
             username=username,
-            password=password,)
+            password=password,
+            hardware_model=hardware_model,)
         q.put(server_info)
     return q
 

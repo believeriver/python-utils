@@ -1,0 +1,27 @@
+terminal length 0
+show version
+[root@rx8node01 ~]# terminal length 0
+ash: terminal: コマンドが見つかりませんでした...
+[root@rx8node01 ~]# show version
+Cisco IOS Software, C2960L Software (C2960L-UNIVERSALK9-M), Version 15.2(7)E3, RELEASE SOFTWARE (fc2)
+Technical Support: http://www.cisco.com/techsupport
+Copyright (c) 1986-2020 by Cisco Systems, Inc.
+Compiled Wed 05-Aug-20 03:14 by prod_rel_team
+
+rx8headnode uptime is 45 days, 2 hours, 5 minutes
+System image file is "flash:/c2960l-universalk9-mz.152-7.E3.bin"
+
+cisco WS-C2960L-8TS-LL (ARM64) processor with 262144K bytes of memory.
+Processor board ID FOC2440X1AB
+1 Virtual Ethernet interface
+8 Gigabit Ethernet interfaces
+
+Base ethernet MAC Address       : AA:BB:CC:00:11:01
+Model number                    : WS-C2960L-8TS-LL
+System serial number            : FOC2440X1AB
+
+Configuration register is 0xF
+[root@rx8node01 ~]# show inventory
+NAME: "1", DESCR: "WS-C2960L-8TS-LL"
+PID: WS-C2960L-8TS-LL   , VID: V01  , SN: FOC2440X1AB
+[root@rx8node01 ~]# 
