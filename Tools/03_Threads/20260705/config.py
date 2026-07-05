@@ -31,6 +31,7 @@ class Config(object):
         "FetchFileListExecutor",
         "FetchLSDFExecutor",
         "FetchPWDExecutor",
+        "FetchInventoryExecutor",
     ]
 
     reporter_class_list = [

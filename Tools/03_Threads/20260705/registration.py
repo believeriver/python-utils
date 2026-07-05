@@ -3,6 +3,12 @@ import sys
 import time
 import os
 
+from thread_worker import set_queue, main_threads
+from concrete_executor import FetchInventoryExecutor
+from reporter import ReporterSample
+from parsers.parse import parse_show_version, parse_show_inventory
+from models.switch import Switch
+from utils import SwitchListDataset
 from config import Config, setup_logger
 from models.switch import Switch
 
@@ -97,6 +103,27 @@ def print_registration_report(result: dict) -> None:
     print("=" * 60)
 
 
+def collect_hardware_info(targets: list, workers: int = Config.MAX_WORKERS) -> None:
+    q = set_queue(_targets=targets)
+    results = main_threads(
+        _q=q,
+        workers=workers,
+        executor_cls=FetchInventoryExecutor,
+        reporter_cls=ReporterSample,
+        level=Config.LEVEL,
+    )
+
+    for res in results:
+        for hostname, lines in res.items():
+            if not lines:
+                logger.warning(f"収集結果なし: {hostname}")
+                continue
+            info = {}
+            info.update(parse_show_version(lines))
+            info.update(parse_show_inventory(lines))
+            Switch.update_hardware_info(hostname, **info)
+            logger.info(f"hardware info updated: {hostname} -> {info}")
+
 def main(argv):
     start = time.time()
     step = argv[0] if argv else "1"
@@ -109,7 +136,9 @@ def main(argv):
         print_registration_report(result)
 
     elif step == "2":
-        print("[INFO] ステップ2(実機収集)は未実装です")
+        # print("[INFO] ステップ2(実機収集)は未実装です")
+        dataset = SwitchListDataset()
+        collect_hardware_info(targets=dataset.targets_list, workers=Config.MAX_WORKERS)
 
     else:
         print("[ERROR] 引数は 1 または 2 を指定してください")
@@ -120,4 +149,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    # python registration.py 1 : regist switches from CSV
+    # python registration.py 2 : collect hardware info from registered switches
     main(sys.argv[1:])
