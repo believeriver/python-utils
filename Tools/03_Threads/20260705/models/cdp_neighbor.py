@@ -201,17 +201,20 @@ class CdpNeighbor(BaseDatabase):
         session = database.connect_db()
         rows = session.query(CdpNeighbor).all()
 
-        # インベントリ登録済みノード
-        known = {row.switch.hostname for row in rows}
-        known |= {row.resolved_switch.hostname for row in rows if row.resolved_switch}
+        # インベントリ登録済みノード(hostname -> ip_addressのdictにする)
+        known = {}
+        for row in rows:
+            known[row.switch.hostname] = row.switch.ip_address
+            if row.resolved_switch:
+                known[row.resolved_switch.hostname] = row.resolved_switch.ip_address
 
-        # 未解決ノード(resolved_switch_idがNullのもの)
+        # 未解決ノード(resolved_switch_idがNullのもの、IPアドレスは持たない)
         unknown = {row.neighbor_hostname_raw for row in rows if row.resolved_switch is None}
 
         session.close()
 
-        nodes = [{"hostname": h, "resolved": True} for h in known]
-        nodes += [{"hostname": h, "resolved": False} for h in unknown]
+        nodes = [{"hostname": h, "ip_address": ip, "resolved": True} for h, ip in known.items()]
+        nodes += [{"hostname": h, "ip_address": None, "resolved": False} for h in unknown]
         return nodes
 
     # models/cdp_neighbor.py に追加

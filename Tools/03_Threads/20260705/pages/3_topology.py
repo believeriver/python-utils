@@ -106,6 +106,8 @@ def build_graph_elements(nodes: list, edges: list, role_map: dict, show_labels: 
     agraph_nodes = []
     for n in nodes:
         hostname = n["hostname"]
+        ip_address = n.get("ip_address")
+
         if n["resolved"]:
             role = role_map.get(hostname, "edge")
             color = ROLE_COLORS.get(role, ROLE_COLORS["edge"])
@@ -114,7 +116,9 @@ def build_graph_elements(nodes: list, edges: list, role_map: dict, show_labels: 
             color = UNKNOWN_COLOR
             size = UNKNOWN_SIZE
 
-        agraph_nodes.append(Node(id=hostname, label=hostname, size=size, color=color))
+        label = f"{hostname}\n{ip_address}" if ip_address else hostname
+
+        agraph_nodes.append(Node(id=hostname, label=label, size=size, color=color))
 
     agraph_edges = []
     for e in edges:
