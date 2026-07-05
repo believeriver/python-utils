@@ -81,3 +81,43 @@ class FetchCdpExecutor(ISSHExecutorInterface):
         self.write_log()
         return self.result
 
+class FetchMacTableExecutor(ISSHExecutorInterface):
+    @staticmethod
+    def build_ssh_client_cls():
+        return ParamikoSSHClient
+
+    @staticmethod
+    def build_command() -> List[str]:
+        return [
+            "show mac address-table",
+        ]
+
+    @property
+    def name(self) -> str:
+        return "FetchMacTableExecutor"
+
+    def execute_command(self):
+        self.execute()
+        self.write_log()
+        return self.result
+
+
+class FetchArpExecutor(ISSHExecutorInterface):
+    @staticmethod
+    def build_ssh_client_cls():
+        return ParamikoSSHClient
+
+    @staticmethod
+    def build_command() -> List[str]:
+        return [
+            "show ip arp",
+        ]
+
+    @property
+    def name(self) -> str:
+        return "FetchArpExecutor"
+
+    def execute_command(self):
+        self.execute()
+        self.write_log()
+        return self.result

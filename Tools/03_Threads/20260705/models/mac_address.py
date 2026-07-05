@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import Config, setup_logger
 from models.db import BaseDatabase, database
+from models.switch import Switch
 
 logger = setup_logger("MacAddressEntry", Config.LEVEL)
 

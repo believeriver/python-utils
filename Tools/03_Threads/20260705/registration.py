@@ -11,15 +11,21 @@ from reporter import ReporterSample
 from concrete_executor import (
     FetchInventoryExecutor,
     FetchCdpExecutor,
+    FetchMacTableExecutor,
+    FetchArpExecutor,
 )
 from parsers.parse import (
     parse_show_version,
     parse_show_inventory,
     parse_cdp_neighbors_detail,
+    parse_mac_address_table,
+    parse_arp_table,
 )
 
 from models.switch import Switch
 from models.cdp_neighbor import CdpNeighbor
+from models.mac_address import MacAddressEntry
+from models.arp_entry import ArpEntry
 
 logger = setup_logger("registration", Config.LEVEL)
 
@@ -160,6 +166,58 @@ def collect_cdp_neighbors(targets: list, workers: int = Config.MAX_WORKERS) -> N
             logger.info(f"cdp saved: {hostname} ({len(neighbors)} neighbors)")
 
 
+def collect_mac_address_table(targets: list, workers: int = Config.MAX_WORKERS) -> None:
+    q = set_queue(_targets=targets)
+    results = main_threads(
+        _q=q,
+        workers=workers,
+        executor_cls=FetchMacTableExecutor,
+        reporter_cls=ReporterSample,
+        level=Config.LEVEL,
+    )
+
+    for res in results:
+        for hostname, lines in res.items():
+            if not lines:
+                logger.warning(f"MACテーブル収集結果なし: {hostname}")
+                continue
+
+            switch = Switch.fetch_by_hostname(hostname)
+            if switch is None:
+                logger.warning(f"Switch not found in DB: {hostname}")
+                continue
+
+            entries = parse_mac_address_table(lines)
+            MacAddressEntry.sync_from_collection(switch["id"], entries)
+            logger.info(f"mac saved: {hostname} ({len(entries)} entries)")
+
+
+def collect_arp_table(targets: list, workers: int = Config.MAX_WORKERS) -> None:
+    q = set_queue(_targets=targets)
+    results = main_threads(
+        _q=q,
+        workers=workers,
+        executor_cls=FetchArpExecutor,
+        reporter_cls=ReporterSample,
+        level=Config.LEVEL,
+    )
+
+    for res in results:
+        for hostname, lines in res.items():
+            if not lines:
+                logger.warning(f"ARP収集結果なし: {hostname}")
+                continue
+
+            switch = Switch.fetch_by_hostname(hostname)
+            if switch is None:
+                logger.warning(f"Switch not found in DB: {hostname}")
+                continue
+
+            entries = parse_arp_table(lines)
+            ArpEntry.sync_from_collection(switch["id"], entries)
+            logger.info(f"arp saved: {hostname} ({len(entries)} entries)")
+
+
 def main(argv):
     start = time.time()
     step = argv[0] if argv else "1"
@@ -180,8 +238,17 @@ def main(argv):
         dataset = SwitchListDataset(targets_file)
         collect_cdp_neighbors(targets=dataset.targets_list, workers=Config.MAX_WORKERS)
 
+    elif step == "4":
+        dataset = SwitchListDataset(targets_file)
+        collect_mac_address_table(targets=dataset.targets_list, workers=Config.MAX_WORKERS)
+
+    elif step == "5":
+        dataset = SwitchListDataset(targets_file)
+        collect_arp_table(targets=dataset.targets_list, workers=Config.MAX_WORKERS)
+
+
     else:
-        print("[ERROR] 引数は 1 または 2 を指定してください")
+        print("[ERROR] 引数は 1,2,3,4,5 のいずれかを指定してください")
         exit(1)
 
     elapsed = time.time() - start
