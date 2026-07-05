@@ -2,27 +2,73 @@ import csv
 import sys
 import time
 import os
-import logging
 
 from config import Config, setup_logger
 from models.switch import Switch
-from thread_worker import set_queue, main_threads
-from concrete_executor import FetchInventoryExecutor
-from reporter import ReporterSample
-from parsers.parse import parse_show_version, parse_show_inventory
 
 logger = setup_logger("registration", Config.LEVEL)
 
+REQUIRED_FIELDS = ["hostname", "ipaddr", "switch_type", "role"]
+VALID_SWITCH_TYPES = {"L2", "L3"}
+VALID_ROLES = {"floor", "edge", "core"}
 
-def register_switches_from_csv(csv_path: str) -> list:
+
+def _clean_row(row: dict) -> dict:
+    """列名・値の前後の空白を除去する"""
+    return {k.strip(): (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
+
+
+def _validate_row(row: dict) -> list:
+    """
+    1行分のバリデーションを行い、問題点のリストを返す(空リストなら問題なし)。
+    """
+    errors = []
+
+    for field in REQUIRED_FIELDS:
+        if not row.get(field):
+            errors.append(f"必須項目が空です: {field}")
+
+    switch_type = row.get("switch_type")
+    if switch_type and switch_type not in VALID_SWITCH_TYPES:
+        errors.append(f"switch_typeの値が不正です: '{switch_type}' (許容値: {VALID_SWITCH_TYPES})")
+
+    role = row.get("role")
+    if role and role not in VALID_ROLES:
+        errors.append(f"roleの値が不正です: '{role}' (許容値: {VALID_ROLES})")
+
+    return errors
+
+
+def register_switches_from_csv(csv_path: str) -> dict:
     """
     ①CSVからスイッチを仮登録する(スレッド化不要)。
-    戻り値：登録したホスト名のリスト(②の収集対象を絞り込むのに使う)
+    不備のある行はスキップし、記録する。
+
+    戻り値: {
+        "succeeded": [hostname, ...],
+        "failed": [{"row_number": int, "hostname": str, "errors": [str, ...]}, ...]
+    }
     """
-    registered_hosts = []
+    succeeded = []
+    failed = []
+
     with open(csv_path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        for row in reader:
+        reader.fieldnames = [name.strip() for name in reader.fieldnames]
+
+        for row_number, raw_row in enumerate(reader, start=2):  # ヘッダーが1行目なので実データは2行目から
+            row = _clean_row(raw_row)
+            errors = _validate_row(row)
+
+            if errors:
+                failed.append({
+                    "row_number": row_number,
+                    "hostname": row.get("hostname") or "(不明)",
+                    "errors": errors,
+                })
+                logger.warning(f"[SKIP] row={row_number} hostname={row.get('hostname')} errors={errors}")
+                continue
+
             Switch.get_or_create(
                 hostname=row["hostname"],
                 ip_address=row["ipaddr"],
@@ -31,54 +77,39 @@ def register_switches_from_csv(csv_path: str) -> list:
                 role=row["role"],
                 location=row.get("location") or None,
             )
-            registered_hosts.append(row["hostname"])
-    logger.info(f"CSVからの仮登録が完了: {len(registered_hosts)}件")
-    return registered_hosts
+            succeeded.append(row["hostname"])
+
+    return {"succeeded": succeeded, "failed": failed}
 
 
-def collect_hardware_info(targets: list, workers: int = Config.MAX_WORKERS) -> None:
-    """
-    ②③実機からshow version/show inventoryを収集し、Switchレコードを更新する(スレッド化)。
-    targets: SwitchListDatasetと同じ形式([{"hostname":..., "ipaddr":...}, ...])
-    """
-    q = set_queue(_targets=targets)
-    results = main_threads(
-        _q=q,
-        workers=workers,
-        executor_cls=FetchInventoryExecutor,
-        reporter_cls=ReporterSample,
-        level=Config.LEVEL,
-    )
+def print_registration_report(result: dict) -> None:
+    print("=" * 60)
+    print(f"[INFO] 登録成功: {len(result['succeeded'])}件")
+    print(f"[INFO] 登録失敗: {len(result['failed'])}件")
 
-    for res in results:
-        for hostname, lines in res.items():
-            if not lines:
-                logger.warning(f"収集結果なし: {hostname}")
-                continue
-            info = {}
-            info.update(parse_show_version(lines))
-            info.update(parse_show_inventory(lines))
-            Switch.update_hardware_info(hostname, **info)
-            logger.info(f"hardware info updated: {hostname} -> {info}")
+    if result["failed"]:
+        print("-" * 60)
+        print("[WARN] 以下の行はスキップされました:")
+        for item in result["failed"]:
+            print(f"  行{item['row_number']} (hostname={item['hostname']}):")
+            for err in item["errors"]:
+                print(f"    - {err}")
+    print("=" * 60)
 
 
 def main(argv):
     start = time.time()
+    step = argv[0] if argv else "1"
 
     cur_dir = os.getcwd()
     targets_file = os.path.join(cur_dir, Config.SETTINGS_DIR, Config.REGISTER_FILE)
 
-    step = argv[0] if argv else "1"
-
     if step == "1":
-        # ①CSV仮登録のみ
-        hosts = register_switches_from_csv(targets_file)
-        print(f"[INFO] 登録件数: {len(hosts)}")
-        print(f"[INFO] 登録ホスト一覧(先頭10件): {hosts[:10]}")
+        result = register_switches_from_csv(targets_file)
+        print_registration_report(result)
 
     elif step == "2":
         print("[INFO] ステップ2(実機収集)は未実装です")
-        # 後日、collect_hardware_info()をここに追加
 
     else:
         print("[ERROR] 引数は 1 または 2 を指定してください")
@@ -89,6 +120,4 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    # python registration.py 1 でCSV仮登録のみ
-    # python registration.py 2 で実機収集(未実装)
     main(sys.argv[1:])
