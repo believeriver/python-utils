@@ -110,6 +110,7 @@ def render_search_page(config: dict, username: str):
         return
 
     mac_address = resolve_mac_from_query(query)
+    st.write(f"DEBUG: resolved mac_address = `{mac_address}`")
     if mac_address is None:
         st.warning("該当する端末が見つかりませんでした。入力形式をご確認ください。")
         return
@@ -121,6 +122,7 @@ def render_search_page(config: dict, username: str):
     if current is None and not timeline:
         st.warning(f"MACアドレス `{mac_address}` の記録が見つかりませんでした。")
         return
+
 
     st.subheader("現在の接続状況")
     if current:
@@ -143,8 +145,14 @@ def render_search_page(config: dict, username: str):
         return
 
     df = pd.DataFrame(timeline).sort_values("valid_from", ascending=False)
-    df["接続終了"] = df["valid_to"].apply(lambda v: v.strftime("%Y-%m-%d %H:%M") if v is not None else "現在")
-    df["接続開始"] = df["valid_from"].apply(lambda v: v.strftime("%Y-%m-%d %H:%M"))
+    # df["接続終了"] = df["valid_to"].apply(lambda v: v.strftime("%Y-%m-%d %H:%M") if v is not None else "現在")
+    # df["接続開始"] = df["valid_from"].apply(lambda v: v.strftime("%Y-%m-%d %H:%M"))
+    df["接続終了"] = df["valid_to"].apply(
+        lambda v: "現在" if pd.isna(v) else v.strftime("%Y-%m-%d %H:%M")
+    )
+    df["接続開始"] = df["valid_from"].apply(
+        lambda v: "現在" if pd.isna(v) else v.strftime("%Y-%m-%d %H:%M")
+    )
     df = df.rename(columns={"switch_hostname": "スイッチ", "port": "ポート", "vlan": "VLAN"})
 
     st.dataframe(
