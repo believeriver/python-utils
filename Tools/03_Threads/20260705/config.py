@@ -21,6 +21,7 @@ class Config(object):
 
     # Other Settings
     CONFIG_FILE = "config.ini"
+    REGISTER_FILE = "register.csv"
     SETTINGS_DIR = "settings"
     OUTPUT_DIR = "out"
     LEVEL = logging.WARN
