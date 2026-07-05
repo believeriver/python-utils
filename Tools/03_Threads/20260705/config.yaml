@@ -7,7 +7,7 @@ credentials:
       role: admin           # admin / viewer
     viewer01:
       name: 閲覧ユーザー01
-      password: "$2b$12$YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"
+      password: "viewer01"
       role: viewer
 
 cookie:
@@ -20,6 +20,8 @@ roles:
   admin:
     can_refresh: true      # 再取得ボタンの表示
     can_download: true     # CSVダウンロードの表示
+    can_view_topology: true
   viewer:
     can_refresh: false
     can_download: false
+    can_view_topology: false

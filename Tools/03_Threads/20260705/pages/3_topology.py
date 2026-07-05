@@ -214,6 +214,8 @@ def render_topology_page():
         "点線 = 片側からのみ確認されたリンク"
     )
 
+def can(config: dict, role: str, permission: str) -> bool:
+    return config["roles"].get(role, {}).get(permission, False)
 
 # ---------------------------------------------------------------------------
 # エントリーポイント
@@ -234,14 +236,18 @@ def main():
         username = st.session_state.get("username")
 
     if auth_status is True:
+        role = get_role(config, username)
+
         with st.sidebar:
-            role = get_role(config, username)
             st.markdown(f"**👤 {name}**")
             st.caption(f"ロール: `{role}`")
             st.divider()
             authenticator.logout("ログアウト", location="sidebar")
 
-        render_topology_page()
+        if can(config, role, "can_view_topology"):
+            render_topology_page()
+        else:
+            st.error("🔒 このページを閲覧する権限がありません（管理者のみ利用可能です）")
 
     elif auth_status is False:
         st.error("❌ ユーザー名またはパスワードが正しくありません")
