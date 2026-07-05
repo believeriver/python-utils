@@ -18,6 +18,8 @@ from yaml.loader import SafeLoader
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from models.mac_address import MacAddressEntry, MacAddressHistory
 from models.arp_entry import ArpEntry
+from models.switch import Switch
+from models.db import database
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
 
@@ -123,7 +125,6 @@ def render_search_page(config: dict, username: str):
         st.warning(f"MACアドレス `{mac_address}` の記録が見つかりませんでした。")
         return
 
-
     st.subheader("現在の接続状況")
     if current:
         c1, c2, c3, c4 = st.columns(4)
@@ -132,7 +133,18 @@ def render_search_page(config: dict, username: str):
         c3.metric("VLAN", current["vlan"])
         c4.metric("最終確認", current["last_seen"].strftime("%Y-%m-%d %H:%M"))
     else:
-        st.info("現在このMACアドレスは、どのスイッチにも接続が確認されていません（過去の履歴のみ存在）。")
+        # st.info("現在このMACアドレスは、どのスイッチにも接続が確認されていません（過去の履歴のみ存在）。")
+        session = database.connect_db()
+        is_switch_itself = session.query(Switch).filter(
+            Switch.base_mac_address == mac_address
+        ).first()
+        switch_hostname = is_switch_itself.hostname if is_switch_itself else None
+        session.close()
+
+        if switch_hostname:
+            st.info(f"このMACアドレスは、スイッチ `{switch_hostname}` 自身のものです。")
+        else:
+            st.info("現在このMACアドレスは、どのスイッチにも接続が確認されていません（過去の履歴のみ存在）。")
 
     ip_list = sorted({e["ip_address"] for e in result["arp_entries"]})
     st.caption(f"MACアドレス: `{mac_address}` ／ 関連IPアドレス: {', '.join(ip_list) if ip_list else '不明'}")
