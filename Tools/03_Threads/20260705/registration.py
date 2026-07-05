@@ -4,13 +4,22 @@ import time
 import os
 
 from thread_worker import set_queue, main_threads
-from concrete_executor import FetchInventoryExecutor
-from reporter import ReporterSample
-from parsers.parse import parse_show_version, parse_show_inventory
-from models.switch import Switch
 from utils import SwitchListDataset
 from config import Config, setup_logger
+from reporter import ReporterSample
+
+from concrete_executor import (
+    FetchInventoryExecutor,
+    FetchCdpExecutor,
+)
+from parsers.parse import (
+    parse_show_version,
+    parse_show_inventory,
+    parse_cdp_neighbors_detail,
+)
+
 from models.switch import Switch
+from models.cdp_neighbor import CdpNeighbor
 
 logger = setup_logger("registration", Config.LEVEL)
 
@@ -124,6 +133,33 @@ def collect_hardware_info(targets: list, workers: int = Config.MAX_WORKERS) -> N
             Switch.update_hardware_info(hostname, **info)
             logger.info(f"hardware info updated: {hostname} -> {info}")
 
+
+def collect_cdp_neighbors(targets: list, workers: int = Config.MAX_WORKERS) -> None:
+    q = set_queue(_targets=targets)
+    results = main_threads(
+        _q=q,
+        workers=workers,
+        executor_cls=FetchCdpExecutor,
+        reporter_cls=ReporterSample,
+        level=Config.LEVEL,
+    )
+
+    for res in results:
+        for hostname, lines in res.items():
+            if not lines:
+                logger.warning(f"CDP収集結果なし: {hostname}")
+                continue
+
+            switch = Switch.fetch_by_hostname(hostname)
+            if switch is None:
+                logger.warning(f"Switch not found in DB: {hostname}")
+                continue
+
+            neighbors = parse_cdp_neighbors_detail(lines)
+            CdpNeighbor.sync_from_collection(switch["id"], neighbors)
+            logger.info(f"cdp saved: {hostname} ({len(neighbors)} neighbors)")
+
+
 def main(argv):
     start = time.time()
     step = argv[0] if argv else "1"
@@ -139,6 +175,10 @@ def main(argv):
         # print("[INFO] ステップ2(実機収集)は未実装です")
         dataset = SwitchListDataset(targets_file)
         collect_hardware_info(targets=dataset.targets_list, workers=Config.MAX_WORKERS)
+
+    elif step == "3":
+        dataset = SwitchListDataset(targets_file)
+        collect_cdp_neighbors(targets=dataset.targets_list, workers=Config.MAX_WORKERS)
 
     else:
         print("[ERROR] 引数は 1 または 2 を指定してください")

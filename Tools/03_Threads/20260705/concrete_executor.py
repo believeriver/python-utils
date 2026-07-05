@@ -59,3 +59,25 @@ class FetchInventoryExecutor(ISSHExecutorInterface):
         self.execute()
         self.write_log()
         return self.result  # スライスせず全行返す
+
+
+class FetchCdpExecutor(ISSHExecutorInterface):
+    @staticmethod
+    def build_ssh_client_cls():
+        return ParamikoSSHClient
+
+    @staticmethod
+    def build_command() -> List[str]:
+        return [
+            "show cdp neighbors detail",
+        ]
+
+    @property
+    def name(self) -> str:
+        return "FetchCdpExecutor"
+
+    def execute_command(self):
+        self.execute()
+        self.write_log()
+        return self.result
+
