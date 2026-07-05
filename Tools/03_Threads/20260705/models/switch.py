@@ -82,6 +82,10 @@ class Switch(BaseDatabase):
             "id": row.id,
             "hostname": row.hostname,
             "ip_address": row.ip_address,
+            "hardware_model": row.hardware_model,
+            "base_mac_address": row.base_mac_address,
+            "service_tag": row.service_tag,
+            "firmware_version": row.firmware_version,
             "location": row.location,
             "role": row.role,
         }
