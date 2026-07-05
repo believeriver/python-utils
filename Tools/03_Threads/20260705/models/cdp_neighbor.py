@@ -214,6 +214,49 @@ class CdpNeighbor(BaseDatabase):
         nodes += [{"hostname": h, "resolved": False} for h in unknown]
         return nodes
 
+    # models/cdp_neighbor.py に追加
+
+    @staticmethod
+    def fetch_topology_subgraph(center_hostname: str, max_hops: int = 2) -> dict:
+        """
+        指定したホストを起点に、max_hops先までの部分トポロジーを返す。
+        戻り値: {"nodes": [...], "edges": [...]}  (fetch_topology_nodes/edgesと同じ形式)
+        """
+        all_edges = CdpNeighbor.fetch_topology_edges()
+
+        # 隣接リストを構築(スイッチ名 -> [(隣接スイッチ名, エッジ情報), ...])
+        adjacency = {}
+        for e in all_edges:
+            adjacency.setdefault(e["switch_a"], []).append((e["switch_b"], e))
+            adjacency.setdefault(e["switch_b"], []).append((e["switch_a"], e))
+
+        if center_hostname not in adjacency:
+            return {"nodes": [], "edges": []}
+
+        # BFSでmax_hops先までのノードを探索
+        visited = {center_hostname: 0}  # hostname -> hop数
+        queue = [center_hostname]
+        included_edges = []
+
+        while queue:
+            current = queue.pop(0)
+            current_hop = visited[current]
+            if current_hop >= max_hops:
+                continue
+
+            for neighbor, edge in adjacency.get(current, []):
+                if edge not in included_edges:
+                    included_edges.append(edge)
+                if neighbor not in visited:
+                    visited[neighbor] = current_hop + 1
+                    queue.append(neighbor)
+
+        # ノード情報を構築(resolvedかどうかの判定に既存データを流用)
+        all_nodes = {n["hostname"]: n for n in CdpNeighbor.fetch_topology_nodes()}
+        result_nodes = [all_nodes[h] for h in visited if h in all_nodes]
+
+        return {"nodes": result_nodes, "edges": included_edges}
+
 
 class CdpNeighborHistory(BaseDatabase):
     """履歴：隣接機器が変わった/消えた時だけ1行追加"""

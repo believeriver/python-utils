@@ -77,7 +77,7 @@ def fetch_switch_roles() -> dict:
 # グラフ構築
 # ---------------------------------------------------------------------------
 
-def build_graph_elements(nodes: list, edges: list, role_map: dict):
+def build_graph_elements(nodes: list, edges: list, role_map: dict, show_labels: bool = False):
     agraph_nodes = []
     for n in nodes:
         hostname = n["hostname"]
@@ -88,16 +88,16 @@ def build_graph_elements(nodes: list, edges: list, role_map: dict):
         else:
             color = UNKNOWN_COLOR
             size = 10
-
         agraph_nodes.append(Node(id=hostname, label=hostname, size=size, color=color))
 
     agraph_edges = []
     for e in edges:
+        label = f'{e["port_a"]} - {e["port_b"] or "?"}' if show_labels else ""
         agraph_edges.append(Edge(
             source=e["switch_a"],
             target=e["switch_b"],
-            label=f'{e["port_a"]} - {e["port_b"] or "?"}',
-            dashes=not e["confirmed_both_sides"],  # 片側のみ確認 → 点線
+            label=label,
+            dashes=not e["confirmed_both_sides"],
             color="#7f8c8d" if e["confirmed_both_sides"] else "#e67e22",
         ))
 
@@ -112,43 +112,44 @@ def render_topology_page():
     st.title("🗺️ ネットワークトポロジー")
     st.caption("収集済みCDPネイバー情報を元にした接続構成図（DB参照・都度通信なし）")
 
+    # ---- 起点・ホップ数の指定 ----
+    all_hostnames = sorted({n["hostname"] for n in CdpNeighbor.fetch_topology_nodes() if n["resolved"]})
+
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        center = st.selectbox("起点となるスイッチを選択", options=["(全体表示)"] + all_hostnames)
+    with col2:
+        max_hops = st.slider("表示するホップ数", min_value=1, max_value=5, value=2)
+    with col3:
+        show_labels = st.checkbox("ポート名を表示", value=False)
+
     if st.button("🔄 表示を更新"):
         st.cache_data.clear()
         st.rerun()
 
     with st.spinner("トポロジーデータを取得中..."):
-        nodes, edges = fetch_topology_data()
+        if center == "(全体表示)":
+            nodes, edges = fetch_topology_data()
+        else:
+            subgraph = CdpNeighbor.fetch_topology_subgraph(center, max_hops=max_hops)
+            nodes, edges = subgraph["nodes"], subgraph["edges"]
         role_map = fetch_switch_roles()
 
     if not nodes:
-        st.warning("トポロジーデータがまだありません。CDP収集を実行してください。")
+        st.warning("該当するトポロジーデータがありません。")
         return
 
     m1, m2, m3 = st.columns(3)
-    m1.metric("ノード数", len(nodes))
-    m2.metric("リンク数", len(edges))
+    m1.metric("表示中のノード数", len(nodes))
+    m2.metric("表示中のリンク数", len(edges))
     unresolved_count = sum(1 for n in nodes if not n["resolved"])
     m3.metric("未識別の機器", unresolved_count)
 
-    unconfirmed_edges = [e for e in edges if not e["confirmed_both_sides"]]
-    if unconfirmed_edges:
-        with st.expander(f"⚠️ 片側からしか確認できていないリンク（{len(unconfirmed_edges)}件）", expanded=False):
-            for e in unconfirmed_edges:
-                st.write(f"- {e['switch_a']} ({e['port_a']}) → {e['switch_b']} ({e['port_b'] or '不明'})")
-
     st.divider()
 
-    agraph_nodes, agraph_edges = build_graph_elements(nodes, edges, role_map)
+    agraph_nodes, agraph_edges = build_graph_elements(nodes, edges, role_map, show_labels)
 
-    config = Config(
-        width=1000,
-        height=650,
-        directed=False,
-        physics=True,
-        hierarchical=False,
-        collapsible=False,
-    )
-
+    config = Config(width=1000, height=650, directed=False, physics=True, hierarchical=False)
     agraph(nodes=agraph_nodes, edges=agraph_edges, config=config)
 
     st.divider()
