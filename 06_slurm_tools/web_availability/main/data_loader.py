@@ -8,6 +8,8 @@
 - 1ファイル = 1ヶ月分、1時間ごとのレコード
 - data/ ディレクトリに YYYYMM.csv を置いておくだけで自動的に読み込み対象になる
 """
+from __future__ import annotations
+
 import glob
 import os
 from datetime import date

@@ -84,8 +84,19 @@ else:
     monthly_df = pd.concat(monthly_rows, ignore_index=True)
     annual_df = pd.DataFrame(annual_rows)
 
+    # "2025-04" のような表記を「4月」という日本語ラベルに変換し、1〜12月の順で並べる
+    monthly_df["month_num"] = monthly_df["month"].str[5:7].astype(int)
+    monthly_df["month_label"] = monthly_df["month_num"].astype(str) + "月"
+    month_order = [f"{m}月" for m in range(1, 13)]
+
     st.plotly_chart(
-        monthly_comparison_bar(monthly_df, "group", f"{compare_year}年 月間平均稼働率の比較"),
+        monthly_comparison_bar(
+            monthly_df,
+            "group",
+            f"{compare_year}年 月間平均稼働率の比較",
+            x_col="month_label",
+            category_orders={"month_label": month_order},
+        ),
         use_container_width=True,
     )
 

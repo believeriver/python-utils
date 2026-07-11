@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -99,31 +101,40 @@ def ranking_bar(df: pd.DataFrame, items: list[str], title: str) -> go.Figure:
     return fig
 
 
-def monthly_comparison_bar(monthly_df: pd.DataFrame, group_col: str, title: str) -> go.Figure:
-    """month, value, <group_col> の列を持つDataFrameから月次比較の棒グラフを作る
+def monthly_comparison_bar(
+    monthly_df: pd.DataFrame,
+    group_col: str,
+    title: str,
+    x_col: str = "month",
+    category_orders: dict | None = None,
+) -> go.Figure:
+    """value, <group_col>, <x_col> の列を持つDataFrameから月次比較の棒グラフを作る
 
     エリア単位・項目(クラスタ)単位のどちらでも、事前に
-    month(YYYY-MM文字列) / value(平均稼働率) / group_col(比較対象名)
+    value(平均稼働率) / group_col(比較対象名) / x_col(横軸のラベル)
     に整形しておけば共通で使える。
     """
     fig = px.bar(
         monthly_df,
-        x="month",
+        x=x_col,
         y="value",
         color=group_col,
         barmode="group",
         template=TEMPLATE,
         color_discrete_sequence=COLOR_SEQ,
+        category_orders=category_orders,
     )
     fig.update_traces(hovertemplate="%{y:.1f}%<extra>%{fullData.name}</extra>")
     fig.update_layout(
         title=dict(text=title, x=0, xanchor="left"),
         yaxis=dict(title="平均稼働率 (%)", range=[0, 100]),
-        xaxis=dict(title=None),
         legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="left", x=0, title=None),
         margin=dict(l=10, r=10, t=50, b=90),
         height=420,
     )
+    # カテゴリ軸は項目数が多いとPlotlyが自動的にラベルを間引くことがあるため、
+    # 全ての月の目盛りを強制的に表示する
+    fig.update_xaxes(title=None, type="category", tickmode="linear", dtick=1)
     return fig
 
 

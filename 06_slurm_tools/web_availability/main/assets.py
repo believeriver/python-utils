@@ -10,6 +10,8 @@ assets.csv の管理方法:
 - 廃止したら該当行の end_date に廃止日を入れる
 - コードは変更不要
 """
+from __future__ import annotations
+
 from datetime import date
 from pathlib import Path
 

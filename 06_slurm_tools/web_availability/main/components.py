@@ -5,6 +5,8 @@ st.columns(N) で横一列に並べる方式は、項目数が増える(GPU10台
 画面幅に収まらず見づらくなるため、CSS Grid(auto-fill)で
 自動的に折り返すカードレイアウトにしている。
 """
+from __future__ import annotations
+
 import pandas as pd
 import streamlit as st
 
