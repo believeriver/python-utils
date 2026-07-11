@@ -1,11 +1,10 @@
 from datetime import date, timedelta
 
-import pandas as pd
 import streamlit as st
 
-from charts import annual_average_bar, heatmap, line_chart, monthly_comparison_bar, ranking_bar
-from config import AREA_GROUPS
-from data_loader import list_available_years, load_range, load_year
+from charts import heatmap, line_chart, ranking_bar
+from config import AREA_STRUCTURE
+from data_loader import load_range
 
 st.set_page_config(page_title="稼働率モニタリング", page_icon="📊", layout="wide")
 
@@ -31,6 +30,14 @@ st.markdown(
 )
 
 st.title("📊 並列計算機・ライセンス稼働率ダッシュボード")
+st.caption("月次・年間の比較は左のナビゲーションの「月次年間比較」ページをご覧ください。")
+
+# サブグループ名は AREA_STRUCTURE 内で一意という前提でフラット化しておく
+SUBGROUPS = [
+    (area, subgroup, items)
+    for area, subgroups in AREA_STRUCTURE.items()
+    for subgroup, items in subgroups.items()
+]
 
 # ---------------- サイドバー ----------------
 with st.sidebar:
@@ -53,12 +60,12 @@ with st.sidebar:
 
     st.divider()
     st.subheader("表示項目")
-    # エリアごとに項目選択(元dashboard.pyの selected-license / selected-nagasaki 等に相当)
     selections = {}
-    for area, items in AREA_GROUPS.items():
-        with st.expander(area, expanded=True):
-            selections[area] = st.multiselect(
-                "項目", items, default=items, key=f"select_{area}", label_visibility="collapsed"
+    for area, subgroup, items in SUBGROUPS:
+        label = subgroup if subgroup != area else area
+        with st.expander(f"{area} - {label}" if subgroup != area else area, expanded=True):
+            selections[subgroup] = st.multiselect(
+                "項目", items, default=items, key=f"select_{subgroup}", label_visibility="collapsed"
             )
 
     st.divider()
@@ -71,142 +78,63 @@ with st.sidebar:
         except ImportError:
             st.warning("`pip install streamlit-autorefresh` が必要です")
 
-# ---------------- データ読み込み(全エリア共通) ----------------
+# ---------------- データ読み込み(全体共通) ----------------
 df = load_range(start_date, end_date)
 
 if df.empty:
     st.info("該当期間のデータが見つかりません。data/ に YYYYMM.csv を配置してください。")
     st.stop()
 
-# ---------------- エリアごとにブロックを縦に並べて表示 ----------------
-for area, items in AREA_GROUPS.items():
-    selected_items = selections[area]
-    available_items = [i for i in selected_items if i in df.columns]
+# ---------------- エリア → サブグループの順に表示 ----------------
+for area, subgroups in AREA_STRUCTURE.items():
+    st.markdown(f"## {area}")
 
-    st.subheader(f"■ {area}")
+    for subgroup, items in subgroups.items():
+        selected_items = selections[subgroup]
+        available_items = [i for i in selected_items if i in df.columns]
 
-    if not available_items:
-        st.info("表示する項目がありません。サイドバーで項目を選択してください。")
-        st.divider()
-        continue
+        st.subheader(f"■ {subgroup}")
 
-    # KPIサマリ
-    # delta には「現在値-平均」の差分を符号付きで渡す。
-    # 文字列の先頭が "-" かどうかで矢印の色/向きが決まるため、
-    # 単に "平均 xx%" という文字列を渡すと常に緑の上矢印になってしまう点に注意。
-    latest = df.iloc[-1]
-    cols = st.columns(len(available_items))
-    for c, item in zip(cols, available_items):
-        current = latest[item]
-        avg = df[item].mean()
-        diff = current - avg
-        c.metric(item, f"{current:.0f}%", f"{diff:+.1f}pt (平均{avg:.1f}%)")
+        if not available_items:
+            st.info("表示する項目がありません。サイドバーで項目を選択してください。")
+            continue
 
-    # トレンドグラフ
-    st.plotly_chart(
-        line_chart(df, available_items, f"{area} 稼働率の推移（{start_date} 〜 {end_date}）"),
-        use_container_width=True,
-    )
+        # KPIサマリ(現在値 と 期間平均との差分)
+        latest = df.iloc[-1]
+        cols = st.columns(len(available_items))
+        for c, item in zip(cols, available_items):
+            current = latest[item]
+            avg = df[item].mean()
+            diff = current - avg
+            c.metric(item, f"{current:.0f}%", f"{diff:+.1f}pt (平均{avg:.1f}%)")
 
-    # ヒートマップ & ランキングは折りたたみに格納(3エリア分を全部開くと縦に長くなりすぎるため)
-    with st.expander(f"🔍 {area} の詳細(時間帯パターン・ランキング)"):
-        tab1, tab2 = st.tabs(["🗓 時間帯ヒートマップ", "🏆 平均稼働率ランキング"])
-        with tab1:
-            heat_item = st.selectbox("表示する項目", available_items, key=f"heat_{area}")
-            st.plotly_chart(
-                heatmap(df, heat_item, f"{heat_item} 曜日×時間帯の稼働率パターン"),
-                use_container_width=True,
-            )
-        with tab2:
-            st.plotly_chart(
-                ranking_bar(df, available_items, f"{area} 平均稼働率ランキング"),
-                use_container_width=True,
-            )
-
-    st.divider()
-
-# ---------------- 月次・年間比較 ----------------
-st.header("📊 月次・年間比較")
-
-available_years = list_available_years()
-if not available_years:
-    st.info("比較用のデータがありません(data/ に複数月分のCSVを配置してください)。")
-else:
-    c1, c2 = st.columns([1, 2])
-    with c1:
-        compare_year = st.selectbox("対象年", available_years, index=len(available_years) - 1)
-    with c2:
-        granularity = st.radio(
-            "比較単位", ["エリア別（地区単位）", "項目別（クラスタ単位）"], horizontal=True
+        # トレンドグラフ
+        st.plotly_chart(
+            line_chart(df, available_items, f"{subgroup} 稼働率の推移（{start_date} 〜 {end_date}）"),
+            use_container_width=True,
         )
 
-    df_year = load_year(compare_year)
-
-    if df_year.empty:
-        st.info(f"{compare_year}年のデータがありません。")
-    else:
-        df_year = df_year.copy()
-        df_year["month"] = df_year["Date"].dt.strftime("%Y-%m")
-
-        monthly_rows = []
-        annual_rows = []
-
-        if granularity == "エリア別（地区単位）":
-            # エリア内の項目を平均してから、そのエリアの月次・年間平均を出す
-            for area, items in AREA_GROUPS.items():
-                cols = [c for c in items if c in df_year.columns]
-                if not cols:
-                    continue
-                area_series = df_year[cols].mean(axis=1)
-                tmp = pd.DataFrame({"month": df_year["month"], "value": area_series})
-                monthly = tmp.groupby("month", as_index=False)["value"].mean()
-                monthly["group"] = area
-                monthly_rows.append(monthly)
-                annual_rows.append({"group": area, "annual_avg": area_series.mean()})
-        else:
-            target_area = st.selectbox(
-                "対象エリア", list(AREA_GROUPS.keys()), key="cluster_compare_area"
-            )
-            cols = [c for c in AREA_GROUPS[target_area] if c in df_year.columns]
-            for item in cols:
-                tmp = pd.DataFrame({"month": df_year["month"], "value": df_year[item]})
-                monthly = tmp.groupby("month", as_index=False)["value"].mean()
-                monthly["group"] = item
-                monthly_rows.append(monthly)
-                annual_rows.append({"group": item, "annual_avg": df_year[item].mean()})
-
-        if not monthly_rows:
-            st.info("表示できるデータがありません。")
-        else:
-            monthly_df = pd.concat(monthly_rows, ignore_index=True)
-            annual_df = pd.DataFrame(annual_rows)
-
-            st.plotly_chart(
-                monthly_comparison_bar(
-                    monthly_df, "group", f"{compare_year}年 月間平均稼働率の比較"
-                ),
-                use_container_width=True,
-            )
-
-            st.subheader(f"{compare_year}年 年間平均稼働率")
-            m_cols = st.columns(len(annual_df))
-            for c, row in zip(m_cols, annual_df.itertuples()):
-                c.metric(row.group, f"{row.annual_avg:.1f}%")
-
-            with st.expander("年間平均をグラフでも見る"):
+        # ヒートマップ & ランキングは折りたたみに格納
+        with st.expander(f"🔍 {subgroup} の詳細(時間帯パターン・ランキング)"):
+            tab1, tab2 = st.tabs(["🗓 時間帯ヒートマップ", "🏆 平均稼働率ランキング"])
+            with tab1:
+                heat_item = st.selectbox("表示する項目", available_items, key=f"heat_{subgroup}")
                 st.plotly_chart(
-                    annual_average_bar(
-                        annual_df, "group", f"{compare_year}年 年間平均稼働率ランキング"
-                    ),
+                    heatmap(df, heat_item, f"{heat_item} 曜日×時間帯の稼働率パターン"),
+                    use_container_width=True,
+                )
+            with tab2:
+                st.plotly_chart(
+                    ranking_bar(df, available_items, f"{subgroup} 平均稼働率ランキング"),
                     use_container_width=True,
                 )
 
-st.divider()
+    st.divider()
 
-# ---------------- 生データ / ダウンロード(全エリア横断) ----------------
+# ---------------- 生データ / ダウンロード(全体横断) ----------------
 all_selected = []
-for area, items in AREA_GROUPS.items():
-    for item in selections[area]:
+for _, subgroup, _ in SUBGROUPS:
+    for item in selections[subgroup]:
         if item in df.columns and item not in all_selected:
             all_selected.append(item)
 

@@ -9,14 +9,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from config import AREA_STRUCTURE
+
 DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-ITEMS = [
-    "NASTRAN", "Abaqus", "Fluent", "CFX",
-    "X1_Haswell", "X1_Broadwell", "X1_Skylake",
-    "Y2_Broadwell", "Y2_Broadwell2", "Y2_Skylake",
-]
+# config.py の階層定義から全項目をフラット化して取得
+ITEMS = [item for subgroups in AREA_STRUCTURE.values() for items in subgroups.values() for item in items]
+
 rng = np.random.default_rng(0)
 
 # 月次・年間比較機能の動作確認用に、2025年1月〜2026年7月分をまとめて生成する
@@ -30,6 +30,8 @@ for period in months:
     df = pd.DataFrame({"Date": dates})
     for item in ITEMS:
         base = rng.uniform(30, 60)
+        # GPUはCPUよりピークが高くなりがちな想定でオフセットを乗せる
+        gpu_offset = 15 if "GPU" in item else 0
         # 季節変動(夏場に稼働率が上がる想定)
         season_effect = 10 * np.sin((month - 3) / 12 * 2 * np.pi)
         # 日中(13時付近)ほど高くなる山型のパターン
@@ -37,9 +39,9 @@ for period in months:
         # 平日は高め、休日は低め
         weekday_effect = np.where(dates.dayofweek < 5, 15, -10)
         noise = rng.normal(0, 5, len(dates))
-        vals = np.clip(base + season_effect + hour_effect + weekday_effect + noise, 0, 100)
+        vals = np.clip(base + gpu_offset + season_effect + hour_effect + weekday_effect + noise, 0, 100)
         df[item] = vals.round(0).astype(int)
 
     ym = f"{year}{month:02d}"
     df.to_csv(DATA_DIR / f"{ym}.csv", index=False)
-    print(f"generated {ym}.csv ({len(df)} rows)")
+    print(f"generated {ym}.csv ({len(df)} rows, {len(ITEMS)} items)")
