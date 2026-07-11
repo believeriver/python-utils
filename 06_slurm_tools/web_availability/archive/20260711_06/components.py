@@ -12,12 +12,7 @@ from config import CAUTION_THRESHOLD, WARNING_THRESHOLD
 
 
 def inject_kpi_css() -> None:
-    """カードグリッド用のCSSを注入する。カードを使うページの先頭で1回呼ぶ。
-
-    色は固定値ではなく Streamlit のテーマ変数(--background-color 等)を使う。
-    これにより、config.toml の Light テーマ時はもちろん、
-    ユーザーが右上メニューから Dark に切り替えた場合も自動的に馴染む配色になる。
-    """
+    """カードグリッド用のCSSを注入する。カードを使うページの先頭で1回呼ぶ。"""
     st.markdown(
         """
         <style>
@@ -28,16 +23,15 @@ def inject_kpi_css() -> None:
             margin: 10px 0 20px 0;
         }
         .kpi-card {
-            background: var(--secondary-background-color);
-            border: 1px solid rgba(128, 128, 128, 0.25);
+            background: #f7f9fb;
+            border: 1px solid #e6e9ef;
             border-left: 4px solid #a0cbe8;
             border-radius: 8px;
             padding: 10px 14px;
         }
         .kpi-name {
             font-size: 0.78rem;
-            color: var(--text-color);
-            opacity: 0.65;
+            color: #5b6672;
             font-weight: 600;
             margin-bottom: 2px;
             white-space: nowrap;
@@ -47,7 +41,7 @@ def inject_kpi_css() -> None:
         .kpi-value {
             font-size: 1.5rem;
             font-weight: 700;
-            color: var(--text-color);
+            color: #1f2933;
             line-height: 1.2;
         }
         .kpi-delta {
@@ -56,28 +50,13 @@ def inject_kpi_css() -> None:
             margin-top: 2px;
         }
         .kpi-avg {
-            opacity: 0.6;
+            color: #8a94a0;
             font-weight: 400;
-        }
-        .area-header {
-            border-left: 5px solid var(--primary-color);
-            padding: 4px 0 4px 14px;
-            margin: 30px 0 14px 0;
-        }
-        .area-header span {
-            font-size: 1.35rem;
-            font-weight: 700;
-            color: var(--text-color);
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-
-
-def render_area_header(text: str) -> None:
-    """エリア見出し(左にアクセントバー付き)を表示する"""
-    st.markdown(f'<div class="area-header"><span>{text}</span></div>', unsafe_allow_html=True)
 
 
 def _status_color(value: float) -> str:

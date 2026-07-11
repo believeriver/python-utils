@@ -3,16 +3,26 @@ from datetime import date, timedelta
 import streamlit as st
 
 from charts import heatmap, line_chart, ranking_bar
-from components import inject_kpi_css, render_area_header, render_kpi_grid
 from config import AREA_STRUCTURE
 from data_loader import load_range
 
 st.set_page_config(page_title="稼働率モニタリング", page_icon="📊", layout="wide")
 
-inject_kpi_css()
 st.markdown(
     """
     <style>
+    [data-testid="stMetric"] {
+        background: #f7f9fb;
+        border: 1px solid #e6e9ef;
+        border-radius: 10px;
+        padding: 12px 16px;
+    }
+    /* テーマがダークモードでも文字色が白に飛ばないよう明示指定 */
+    [data-testid="stMetric"] [data-testid="stMetricLabel"],
+    [data-testid="stMetric"] [data-testid="stMetricValue"],
+    [data-testid="stMetric"] [data-testid="stMetricDelta"] {
+        color: #1f2933 !important;
+    }
     div.block-container { padding-top: 1.5rem; }
     </style>
     """,
@@ -77,42 +87,49 @@ if df.empty:
 
 # ---------------- エリア → サブグループの順に表示 ----------------
 for area, subgroups in AREA_STRUCTURE.items():
-    render_area_header(area)
+    st.markdown(f"## {area}")
 
     for subgroup, items in subgroups.items():
         selected_items = selections[subgroup]
         available_items = [i for i in selected_items if i in df.columns]
 
-        with st.container(border=True):
-            st.subheader(f"■ {subgroup}")
+        st.subheader(f"■ {subgroup}")
 
-            if not available_items:
-                st.info("表示する項目がありません。サイドバーで項目を選択してください。")
-                continue
+        if not available_items:
+            st.info("表示する項目がありません。サイドバーで項目を選択してください。")
+            continue
 
-            # KPIサマリ(現在値・期間平均との差分をカードグリッドで表示)
-            render_kpi_grid(df, available_items)
+        # KPIサマリ(現在値 と 期間平均との差分)
+        latest = df.iloc[-1]
+        cols = st.columns(len(available_items))
+        for c, item in zip(cols, available_items):
+            current = latest[item]
+            avg = df[item].mean()
+            diff = current - avg
+            c.metric(item, f"{current:.0f}%", f"{diff:+.1f}pt (平均{avg:.1f}%)")
 
-            # トレンドグラフ
-            st.plotly_chart(
-                line_chart(df, available_items, f"{subgroup} 稼働率の推移（{start_date} 〜 {end_date}）"),
-                use_container_width=True,
-            )
+        # トレンドグラフ
+        st.plotly_chart(
+            line_chart(df, available_items, f"{subgroup} 稼働率の推移（{start_date} 〜 {end_date}）"),
+            use_container_width=True,
+        )
 
-            # ヒートマップ & ランキングは折りたたみに格納
-            with st.expander(f"🔍 {subgroup} の詳細(時間帯パターン・ランキング)"):
-                tab1, tab2 = st.tabs(["🗓 時間帯ヒートマップ", "🏆 平均稼働率ランキング"])
-                with tab1:
-                    heat_item = st.selectbox("表示する項目", available_items, key=f"heat_{subgroup}")
-                    st.plotly_chart(
-                        heatmap(df, heat_item, f"{heat_item} 曜日×時間帯の稼働率パターン"),
-                        use_container_width=True,
-                    )
-                with tab2:
-                    st.plotly_chart(
-                        ranking_bar(df, available_items, f"{subgroup} 平均稼働率ランキング"),
-                        use_container_width=True,
-                    )
+        # ヒートマップ & ランキングは折りたたみに格納
+        with st.expander(f"🔍 {subgroup} の詳細(時間帯パターン・ランキング)"):
+            tab1, tab2 = st.tabs(["🗓 時間帯ヒートマップ", "🏆 平均稼働率ランキング"])
+            with tab1:
+                heat_item = st.selectbox("表示する項目", available_items, key=f"heat_{subgroup}")
+                st.plotly_chart(
+                    heatmap(df, heat_item, f"{heat_item} 曜日×時間帯の稼働率パターン"),
+                    use_container_width=True,
+                )
+            with tab2:
+                st.plotly_chart(
+                    ranking_bar(df, available_items, f"{subgroup} 平均稼働率ランキング"),
+                    use_container_width=True,
+                )
+
+    st.divider()
 
 # ---------------- 生データ / ダウンロード(全体横断) ----------------
 all_selected = []
