@@ -1,5 +1,0 @@
-streamlit>=1.35
-pandas
-plotly
-numpy
-streamlit-autorefresh  # 任意: 自動更新機能を使う場合のみ必要
