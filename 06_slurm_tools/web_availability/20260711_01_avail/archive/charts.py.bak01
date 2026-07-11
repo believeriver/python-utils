@@ -25,13 +25,13 @@ def line_chart(df: pd.DataFrame, items: list[str], title: str) -> go.Figure:
             )
         )
     fig.update_layout(
-        title=dict(text=title, x=0, xanchor="left"),
+        title=title,
         template=TEMPLATE,
-        height=440,
+        height=380,
         yaxis=dict(title="稼働率 (%)", range=[0, 100]),
-        xaxis=dict(title=None, rangeslider=dict(visible=True), rangeslider_thickness=0.08),
-        legend=dict(orientation="h", yanchor="top", y=-0.35, xanchor="left", x=0),
-        margin=dict(l=10, r=10, t=50, b=110),
+        xaxis=dict(title=None, rangeslider=dict(visible=True), rangeslider_thickness=0.06),
+        legend=dict(orientation="h", y=1.14),
+        margin=dict(l=10, r=10, t=60, b=10),
         hovermode="x unified",
     )
     return fig
