@@ -20,7 +20,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("📊 並列計算機・ライセンス稼働率ダッシュボード")
+st.title("📊 Availability Dashboard")
 st.caption("月次・年間の比較は左のナビゲーションの「月次年間比較」ページをご覧ください。")
 
 # ---------------- サイドバー ----------------
