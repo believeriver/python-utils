@@ -2,10 +2,12 @@ import pandas as pd
 import streamlit as st
 
 from charts import annual_average_bar, monthly_comparison_bar
+from components import inject_kpi_css, render_value_grid
 from config import AREA_STRUCTURE, COMPARISON_GROUPS
 from data_loader import list_available_years, load_year
 
 st.set_page_config(page_title="月次・年間比較", page_icon="📈", layout="wide")
+inject_kpi_css()
 st.title("📈 月次・年間比較")
 
 available_years = list_available_years()
@@ -80,9 +82,7 @@ else:
     )
 
     st.subheader(f"{compare_year}年 年間平均稼働率")
-    m_cols = st.columns(len(annual_df))
-    for c, row in zip(m_cols, annual_df.itertuples()):
-        c.metric(row.group, f"{row.annual_avg:.1f}%")
+    render_value_grid(dict(zip(annual_df["group"], annual_df["annual_avg"])))
 
     with st.expander("年間平均をグラフでも見る"):
         st.plotly_chart(

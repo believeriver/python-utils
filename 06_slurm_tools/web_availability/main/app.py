@@ -3,26 +3,16 @@ from datetime import date, timedelta
 import streamlit as st
 
 from charts import heatmap, line_chart, ranking_bar
+from components import inject_kpi_css, render_kpi_grid
 from config import AREA_STRUCTURE
 from data_loader import load_range
 
 st.set_page_config(page_title="稼働率モニタリング", page_icon="📊", layout="wide")
 
+inject_kpi_css()
 st.markdown(
     """
     <style>
-    [data-testid="stMetric"] {
-        background: #f7f9fb;
-        border: 1px solid #e6e9ef;
-        border-radius: 10px;
-        padding: 12px 16px;
-    }
-    /* テーマがダークモードでも文字色が白に飛ばないよう明示指定 */
-    [data-testid="stMetric"] [data-testid="stMetricLabel"],
-    [data-testid="stMetric"] [data-testid="stMetricValue"],
-    [data-testid="stMetric"] [data-testid="stMetricDelta"] {
-        color: #1f2933 !important;
-    }
     div.block-container { padding-top: 1.5rem; }
     </style>
     """,
@@ -99,14 +89,8 @@ for area, subgroups in AREA_STRUCTURE.items():
             st.info("表示する項目がありません。サイドバーで項目を選択してください。")
             continue
 
-        # KPIサマリ(現在値 と 期間平均との差分)
-        latest = df.iloc[-1]
-        cols = st.columns(len(available_items))
-        for c, item in zip(cols, available_items):
-            current = latest[item]
-            avg = df[item].mean()
-            diff = current - avg
-            c.metric(item, f"{current:.0f}%", f"{diff:+.1f}pt (平均{avg:.1f}%)")
+        # KPIサマリ(現在値・期間平均との差分をカードグリッドで表示)
+        render_kpi_grid(df, available_items)
 
         # トレンドグラフ
         st.plotly_chart(
