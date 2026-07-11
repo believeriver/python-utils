@@ -19,7 +19,7 @@ ITEMS = [
 ]
 rng = np.random.default_rng(0)
 
-for ym in ["202605", "202606", "202607"]:
+for ym in ["202505", "202506", "202507"]:
     year, month = int(ym[:4]), int(ym[4:])
     all_hours = pd.date_range(f"{year}-{month:02d}-01", periods=24 * 31, freq="h")
     dates = all_hours[all_hours.month == month]
