@@ -1,0 +1,25 @@
+ーーー
+環境構築メモ
+
+pip install sqlalchemy
+pip install pysnmp
+pip install "pysnmp==4.4.12" "pyasn1==0.4.8"
+pip install streamlit-authenticator pyyaml
+pip install streamlit
+
+# 一度だけ実行してハッシュを config.yaml に貼る
+import streamlit_authenticator as stauth
+print(stauth.Hasher(["実際のパスワード"]).generate())
+
+トポロジーを描画する
+pip install streamlit-agraph
+
+# 稼働率グラフ
+pandas
+plotly
+numpy
+streamlit-autorefresh  # 任意: 自動更新機能を使う場合のみ必要
+
+
+# プログラムスタート
+streamlit run app.py

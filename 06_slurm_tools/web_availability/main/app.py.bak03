@@ -1,11 +1,10 @@
 from datetime import date, timedelta
 
-import pandas as pd
 import streamlit as st
 
-from assets import area_structure_for_period, retired_or_added_in_period
 from charts import heatmap, line_chart, ranking_bar
 from components import inject_kpi_css, render_area_header, render_kpi_grid
+from config import AREA_STRUCTURE
 from data_loader import load_range
 
 st.set_page_config(page_title="稼働率モニタリング", page_icon="📊", layout="wide")
@@ -22,6 +21,13 @@ st.markdown(
 
 st.title("📊 並列計算機・ライセンス稼働率ダッシュボード")
 st.caption("月次・年間の比較は左のナビゲーションの「月次年間比較」ページをご覧ください。")
+
+# サブグループ名は AREA_STRUCTURE 内で一意という前提でフラット化しておく
+SUBGROUPS = [
+    (area, subgroup, items)
+    for area, subgroups in AREA_STRUCTURE.items()
+    for subgroup, items in subgroups.items()
+]
 
 # ---------------- サイドバー ----------------
 with st.sidebar:
@@ -42,26 +48,14 @@ with st.sidebar:
         start_date = c1.date_input("開始日", today - timedelta(days=30))
         end_date = c2.date_input("終了日", today)
 
-    # 選択された期間に「実際に稼働していた」項目だけを台帳(assets.csv)から組み立てる。
-    # クラスタの増設・廃止があっても、ここを直接編集する必要はない。
-    area_structure = area_structure_for_period(start_date, end_date)
-    subgroups_flat = [
-        (area, subgroup, items)
-        for area, subgroups in area_structure.items()
-        for subgroup, items in subgroups.items()
-    ]
-
     st.divider()
     st.subheader("表示項目")
     selections = {}
-    for area, subgroup, items in subgroups_flat:
-        label = f"{area} - {subgroup}" if subgroup != area else area
-        # 期間が変わると対象項目の顔ぶれも変わりうるため、期間もキーに含めて
-        # 前回選択の残骸(廃止済み項目など)を引きずらないようにする
-        widget_key = f"select_{subgroup}_{start_date.isoformat()}_{end_date.isoformat()}"
-        with st.expander(label, expanded=True):
+    for area, subgroup, items in SUBGROUPS:
+        label = subgroup if subgroup != area else area
+        with st.expander(f"{area} - {label}" if subgroup != area else area, expanded=True):
             selections[subgroup] = st.multiselect(
-                "項目", items, default=items, key=widget_key, label_visibility="collapsed"
+                "項目", items, default=items, key=f"select_{subgroup}", label_visibility="collapsed"
             )
 
     st.divider()
@@ -81,22 +75,8 @@ if df.empty:
     st.info("該当期間のデータが見つかりません。data/ に YYYYMM.csv を配置してください。")
     st.stop()
 
-if not area_structure:
-    st.info("この期間に稼働していた項目が assets.csv に見つかりません。")
-    st.stop()
-
-# 期間中に増設・廃止があれば知らせる(構成変更の見落とし防止)
-changes = retired_or_added_in_period(start_date, end_date)
-if not changes.empty:
-    with st.expander(f"ℹ️ この期間中に構成変更がありました({len(changes)}件)"):
-        for row in changes.itertuples():
-            if pd.notna(row.end_date):
-                st.write(f"🔻 {row.item_id}（{row.subgroup}）: {row.end_date.date()} に廃止")
-            else:
-                st.write(f"🔺 {row.item_id}（{row.subgroup}）: {row.start_date.date()} に稼働開始")
-
 # ---------------- エリア → サブグループの順に表示 ----------------
-for area, subgroups in area_structure.items():
+for area, subgroups in AREA_STRUCTURE.items():
     render_area_header(area)
 
     for subgroup, items in subgroups.items():
@@ -136,7 +116,7 @@ for area, subgroups in area_structure.items():
 
 # ---------------- 生データ / ダウンロード(全体横断) ----------------
 all_selected = []
-for _, subgroup, _ in subgroups_flat:
+for _, subgroup, _ in SUBGROUPS:
     for item in selections[subgroup]:
         if item in df.columns and item not in all_selected:
             all_selected.append(item)

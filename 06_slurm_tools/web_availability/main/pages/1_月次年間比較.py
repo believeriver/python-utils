@@ -1,9 +1,11 @@
+from datetime import date
+
 import pandas as pd
 import streamlit as st
 
+from assets import area_structure_for_period, comparison_groups_for_period
 from charts import annual_average_bar, monthly_comparison_bar
 from components import inject_kpi_css, render_value_grid
-from config import AREA_STRUCTURE, COMPARISON_GROUPS
 from data_loader import list_available_years, load_year
 
 st.set_page_config(page_title="月次・年間比較", page_icon="📈", layout="wide")
@@ -33,6 +35,11 @@ if df_year.empty:
 df_year = df_year.copy()
 df_year["month"] = df_year["Date"].dt.strftime("%Y-%m")
 
+# 選択した年(1/1〜12/31)に稼働していた項目だけを台帳から取得する
+year_start, year_end = date(compare_year, 1, 1), date(compare_year, 12, 31)
+comparison_groups = comparison_groups_for_period(year_start, year_end)
+area_structure = area_structure_for_period(year_start, year_end)
+
 monthly_rows = []
 annual_rows = []
 
@@ -41,8 +48,9 @@ if granularity.startswith("計算機グループ別"):
         "ライセンスは性質の異なるソフトウェアの寄せ集めのため、"
         "まとめて平均する意味がないのでこの比較には含めていません。"
         "ライセンスごとの比較は「項目別」を選んでください。"
+        "また、年の途中で増設・廃止された項目は、稼働していた月のみ集計に含まれます。"
     )
-    for group, cols_all in COMPARISON_GROUPS.items():
+    for group, cols_all in comparison_groups.items():
         cols = [c for c in cols_all if c in df_year.columns]
         if not cols:
             continue
@@ -53,10 +61,10 @@ if granularity.startswith("計算機グループ別"):
         monthly_rows.append(monthly)
         annual_rows.append({"group": group, "annual_avg": series.mean()})
 else:
-    # ライセンスも含め、全サブグループから比較対象を選べるようにする
+    # ライセンスも含め、その年に稼働実績のある全サブグループから対象を選べるようにする
     flat_groups = {
         subgroup: items
-        for subgroups in AREA_STRUCTURE.values()
+        for subgroups in area_structure.values()
         for subgroup, items in subgroups.items()
     }
     target_group = st.selectbox(
