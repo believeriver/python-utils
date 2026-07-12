@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from assets import area_structure_for_period, retired_or_added_in_period
-from charts import heatmap, line_chart, ranking_bar
+from charts import heatmap, latest_snapshot_bar, line_chart, ranking_bar
 from components import inject_kpi_css, render_area_header, render_kpi_grid
 from data_loader import load_range
 
@@ -20,7 +20,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("📊 Availability Dashboard")
+st.title("📊 並列計算機・ライセンス稼働率ダッシュボード")
 st.caption("月次・年間の比較は左のナビゲーションの「月次年間比較」ページをご覧ください。")
 
 # ---------------- サイドバー ----------------
@@ -119,9 +119,11 @@ for area, subgroups in area_structure.items():
                 use_container_width=True,
             )
 
-            # ヒートマップ & ランキングは折りたたみに格納
-            with st.expander(f"🔍 {subgroup} の詳細(時間帯パターン・ランキング)"):
-                tab1, tab2 = st.tabs(["🗓 時間帯ヒートマップ", "🏆 平均稼働率ランキング"])
+            # ヒートマップ & ランキング & 最新スナップショットは折りたたみに格納
+            with st.expander(f"🔍 {subgroup} の詳細(時間帯パターン・ランキング・最新値)"):
+                tab1, tab2, tab3 = st.tabs(
+                    ["🗓 時間帯ヒートマップ", "🏆 平均稼働率ランキング", "⏱ 最新時間の稼働率"]
+                )
                 with tab1:
                     heat_item = st.selectbox("表示する項目", available_items, key=f"heat_{subgroup}")
                     st.plotly_chart(
@@ -131,6 +133,11 @@ for area, subgroups in area_structure.items():
                 with tab2:
                     st.plotly_chart(
                         ranking_bar(df, available_items, f"{subgroup} 平均稼働率ランキング"),
+                        use_container_width=True,
+                    )
+                with tab3:
+                    st.plotly_chart(
+                        latest_snapshot_bar(df, available_items, f"{subgroup} 最新時間の稼働率"),
                         use_container_width=True,
                     )
 

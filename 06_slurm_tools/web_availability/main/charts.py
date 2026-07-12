@@ -10,6 +10,15 @@ TEMPLATE = "plotly_white"
 COLOR_SEQ = px.colors.qualitative.Set2
 
 
+def _status_color(value: float) -> str:
+    """稼働率の高さに応じた色(逼迫=赤、通常=青、余裕あり=水色)"""
+    if value >= WARNING_THRESHOLD:
+        return "#e15759"
+    if value >= CAUTION_THRESHOLD:
+        return "#4e79a7"
+    return "#a0cbe8"
+
+
 def line_chart(df: pd.DataFrame, items: list[str], title: str) -> go.Figure:
     """期間内の稼働率推移(複数項目を折れ線で重ね描き)"""
     fig = go.Figure()
@@ -72,14 +81,7 @@ def ranking_bar(df: pd.DataFrame, items: list[str], title: str) -> go.Figure:
     means = {item: df[item].mean() for item in items if item in df.columns}
     s = pd.Series(means).sort_values()
 
-    def _color(v: float) -> str:
-        if v >= WARNING_THRESHOLD:
-            return "#e15759"
-        if v >= CAUTION_THRESHOLD:
-            return "#4e79a7"
-        return "#a0cbe8"
-
-    colors = [_color(v) for v in s.values]
+    colors = [_status_color(v) for v in s.values]
 
     fig = go.Figure(
         go.Bar(
@@ -96,6 +98,40 @@ def ranking_bar(df: pd.DataFrame, items: list[str], title: str) -> go.Figure:
         template=TEMPLATE,
         height=90 + 42 * len(s),
         xaxis=dict(title="平均稼働率 (%)", range=[0, 108]),
+        margin=dict(l=10, r=30, t=60, b=10),
+    )
+    return fig
+
+
+def latest_snapshot_bar(df: pd.DataFrame, items: list[str], title: str) -> go.Figure:
+    """最新時刻の稼働率を、リストの並び順のまま横棒グラフで表示する
+
+    ranking_bar とは違い、平均値で並び替えず、サイドバーで選んだ順序をそのまま使う。
+    """
+    latest_row = df.iloc[-1]
+    latest_time = df["Date"].iloc[-1]
+    valid_items = [i for i in items if i in df.columns]
+    values = [latest_row[i] for i in valid_items]
+
+    # 横棒グラフは配列の先頭が下に来るため、リストの先頭が上に来るよう逆順にして渡す
+    y = list(reversed(valid_items))
+    x = list(reversed(values))
+
+    fig = go.Figure(
+        go.Bar(
+            x=x,
+            y=y,
+            orientation="h",
+            marker_color=[_status_color(v) for v in x],
+            text=[f"{v:.0f}%" for v in x],
+            textposition="outside",
+        )
+    )
+    fig.update_layout(
+        title=f"{title}（{latest_time:%Y-%m-%d %H:%M} 時点）",
+        template=TEMPLATE,
+        height=90 + 42 * len(valid_items),
+        xaxis=dict(title="稼働率 (%)", range=[0, 108]),
         margin=dict(l=10, r=30, t=60, b=10),
     )
     return fig
@@ -142,19 +178,12 @@ def annual_average_bar(annual_df: pd.DataFrame, group_col: str, title: str) -> g
     """group_col, annual_avg の列を持つDataFrameから年間平均の棒グラフを作る"""
     s = annual_df.set_index(group_col)["annual_avg"].sort_values()
 
-    def _color(v: float) -> str:
-        if v >= WARNING_THRESHOLD:
-            return "#e15759"
-        if v >= CAUTION_THRESHOLD:
-            return "#4e79a7"
-        return "#a0cbe8"
-
     fig = go.Figure(
         go.Bar(
             x=s.values,
             y=s.index,
             orientation="h",
-            marker_color=[_color(v) for v in s.values],
+            marker_color=[_status_color(v) for v in s.values],
             text=[f"{v:.1f}%" for v in s.values],
             textposition="outside",
         )
