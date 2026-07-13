@@ -5,27 +5,12 @@
 assets.csv(台帳)の start_date/end_date を見て、その月に実際に稼働していた
 項目だけをCSVに列として出力する(クラスタの増設・廃止をシミュレートしている)。
 
-デフォルトでは実データに合わせて "63%" のように % 付き文字列で出力する
-(data_loader.py の % トリム処理を試せるように)。
-% なしの数値だけで試したい場合は --plain を付ける。
-
-  python gen_sample_data.py           # "63%" のような % 付きで出力(デフォルト)
-  python gen_sample_data.py --plain   # 63 のような数値のみで出力
+  python gen_sample_data.py
 """
-import argparse
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--plain",
-    action="store_true",
-    help="% を付けず数値のみで出力する(指定しない場合は % 付きで出力)",
-)
-args = parser.parse_args()
-use_percent = not args.plain
 
 DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
@@ -61,15 +46,8 @@ for period in months:
         weekday_effect = np.where(dates.dayofweek < 5, 15, -10)
         noise = rng.normal(0, 5, len(dates))
         vals = np.clip(base + gpu_offset + season_effect + hour_effect + weekday_effect + noise, 0, 100)
-        vals = vals.round(0).astype(int)
-        df[item] = [f"{v}%" for v in vals] if use_percent else vals
+        df[item] = vals.round(0).astype(int)
 
     ym = f"{year}{month:02d}"
     df.to_csv(DATA_DIR / f"{ym}.csv", index=False)
-    suffix = "%付き" if use_percent else "数値のみ"
-    print(f"generated {ym}.csv ({len(df)} rows, {len(items)} items, {suffix})")
-
-    """
-    python gen_sample_data.py           # "63%" のような % 付き(デフォルト、実データに近い形)
-    python gen_sample_data.py --plain   # 63 のような数値のみ(従来の形式)
-    """
+    print(f"generated {ym}.csv ({len(df)} rows, {len(items)} items)")
