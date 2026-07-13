@@ -35,20 +35,6 @@ def list_available_months() -> list[str]:
 def _load_month_csv(yyyymm: str) -> pd.DataFrame:
     path = os.path.join(DATA_DIR, f"{yyyymm}.csv")
     df = pd.read_csv(path, parse_dates=["Date"])
-    df = _strip_percent(df)
-    return df
-
-
-def _strip_percent(df: pd.DataFrame) -> pd.DataFrame:
-    """Date列以外の値に "63%" のような % 表記が混ざっていても数値に変換する
-
-    すでに数値(63)のセルはそのまま数値変換されるだけなので、
-    % 付き/なしどちらのCSVでも安全に読める。
-    """
-    value_cols = [c for c in df.columns if c != "Date"]
-    for col in value_cols:
-        cleaned = df[col].astype(str).str.strip().str.rstrip("%")
-        df[col] = pd.to_numeric(cleaned, errors="coerce")
     return df
 
 
