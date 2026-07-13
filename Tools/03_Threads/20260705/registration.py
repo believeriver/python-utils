@@ -246,6 +246,9 @@ def main(argv):
         dataset = SwitchListDataset(targets_file)
         collect_arp_table(targets=dataset.targets_list, workers=Config.MAX_WORKERS)
 
+    elif step == "6":
+        from snmp_arp_sync import collect_arp_via_snmp
+        collect_arp_via_snmp(Config.CORE_SWITCHES)
 
     else:
         print("[ERROR] 引数は 1,2,3,4,5 のいずれかを指定してください")

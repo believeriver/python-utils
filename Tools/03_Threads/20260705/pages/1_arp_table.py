@@ -3,6 +3,7 @@ Streamlit ページ: ARPテーブル リアルタイム確認
 - YAML ベースのユーザー認証（streamlit-authenticator）
 - ロール別機能制御（admin / viewer）
 - DB保存なし / st.cache_data(ttl=60) で短期キャッシュ
+- コアスイッチ一覧は config.py の Config.CORE_SWITCHES を参照（収集ジョブ側と共通）
 """
 
 from __future__ import annotations
@@ -15,9 +16,10 @@ import yaml
 import streamlit_authenticator as stauth
 from yaml.loader import SafeLoader
 
-# snmp モジュールをパスに追加（プロジェクト構成に合わせて調整）
+# snmp / config モジュールをパスに追加（プロジェクト構成に合わせて調整）
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from snmp.arp_collector import get_arp_entries
+from config import Config
 
 
 # ---------------------------------------------------------------------------
@@ -25,11 +27,6 @@ from snmp.arp_collector import get_arp_entries
 # ---------------------------------------------------------------------------
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
-
-CORE_SWITCHES = [
-    {"host": "192.168.0.1", "community": "public", "label": "Core-SW1"},
-    {"host": "192.168.0.2", "community": "public", "label": "Core-SW2"},
-]
 
 
 # ---------------------------------------------------------------------------
@@ -83,12 +80,12 @@ def fetch_arp_dataframe() -> tuple[pd.DataFrame, list[str]]:
     rows: list[dict] = []
     errors: list[str] = []
 
-    for sw in CORE_SWITCHES:
+    for sw in Config.CORE_SWITCHES:
         try:
             entries = get_arp_entries(
                 host=sw["host"],
                 community=sw["community"],
-                label=sw["label"],
+                label=sw["hostname"],
             )
             for e in entries:
                 rows.append({
@@ -99,7 +96,7 @@ def fetch_arp_dataframe() -> tuple[pd.DataFrame, list[str]]:
                     "MACアドレス":      e.mac_address,
                 })
         except Exception as ex:
-            errors.append(f"⚠️ {sw['label']} ({sw['host']}): {ex}")
+            errors.append(f"⚠️ {sw['hostname']} ({sw['host']}): {ex}")
 
     df = pd.DataFrame(rows) if rows else pd.DataFrame(
         columns=["スイッチ", "VLAN", "インターフェース", "IPアドレス", "MACアドレス"]
@@ -203,10 +200,6 @@ def main():
     authenticator = setup_authenticator(config)
 
     # ---- ログインフォーム ----
-    # name, auth_status, username = authenticator.login(
-    #     form_name="ログイン",
-    #     location="main",
-    # )
     result = authenticator.login(location="main")
 
     if result is not None:

@@ -56,6 +56,16 @@ class Config(object):
         "FetchInventoryExecutor": "InventoryDBSaver",
     }
 
+    # SNMP
+    # Switchテーブルに登録済みの、実際のホスト名と完全に一致させる必要があります。
+    # 今回のテスト環境であればrx8headnode（コアスイッチとして動かしているマシン）です。
+    CORE_SWITCHES = [
+        {"hostname": "rx8headnode", "host": "192.168.64.2", "community": "public"},
+        # 実際のコアスイッチが複数台あれば、同じ形式で追加
+        # {"hostname": "core-sw02", "host": "192.168.0.2", "community": "public"},
+    ]
+
+
 
 # -----------------------------
 # Logger
