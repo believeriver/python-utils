@@ -6,7 +6,7 @@ from sqlalchemy import Column, String, Integer, Boolean
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import Config, setup_logger
-from models.db import BaseDatabase, database
+from models.db import BaseDatabase, database, db_write_lock
 
 logger = setup_logger("Switch", Config.LEVEL)
 
@@ -30,32 +30,33 @@ class Switch(BaseDatabase):
     @staticmethod
     def get_or_create(hostname: str, ip_address: str, hardware_model: str,
                        switch_type: str, role: str, **kwargs) -> "Switch":
-        session = database.connect_db()
-        row = session.query(Switch).filter(Switch.hostname == hostname).first()
-
-        if row:
-            row.ip_address = ip_address
-            row.hardware_model = hardware_model
-            row.switch_type = switch_type
-            row.role = role
-            for key, value in kwargs.items():
-                setattr(row, key, value)
-            session.add(row)
-            session.commit()
+        with db_write_lock:
+            session = database.connect_db()
             row = session.query(Switch).filter(Switch.hostname == hostname).first()
-            logger.info(f"updated switch: {hostname}")
-        else:
-            row = Switch(
-                hostname=hostname, ip_address=ip_address, hardware_model=hardware_model,
-                switch_type=switch_type, role=role, **kwargs,
-            )
-            session.add(row)
-            session.commit()
-            row = session.query(Switch).filter(Switch.hostname == hostname).first()
-            logger.info(f"created switch: {hostname}")
 
-        session.close()
-        return row
+            if row:
+                row.ip_address = ip_address
+                row.hardware_model = hardware_model
+                row.switch_type = switch_type
+                row.role = role
+                for key, value in kwargs.items():
+                    setattr(row, key, value)
+                session.add(row)
+                session.commit()
+                row = session.query(Switch).filter(Switch.hostname == hostname).first()
+                logger.info(f"updated switch: {hostname}")
+            else:
+                row = Switch(
+                    hostname=hostname, ip_address=ip_address, hardware_model=hardware_model,
+                    switch_type=switch_type, role=role, **kwargs,
+                )
+                session.add(row)
+                session.commit()
+                row = session.query(Switch).filter(Switch.hostname == hostname).first()
+                logger.info(f"created switch: {hostname}")
+
+            session.close()
+            return row
 
     @staticmethod
     def fetch_all_active() -> List[dict]:
@@ -92,25 +93,24 @@ class Switch(BaseDatabase):
         session.close()
         return result
 
-    # models/switch.py に追加
-
     @staticmethod
     def update_hardware_info(hostname: str, **fields) -> None:
         """show version/show inventoryの結果でハードウェア情報を上書きする"""
-        session = database.connect_db()
-        row = session.query(Switch).filter(Switch.hostname == hostname).first()
-        if row is None:
+        with db_write_lock:
+            session = database.connect_db()
+            row = session.query(Switch).filter(Switch.hostname == hostname).first()
+            if row is None:
+                session.close()
+                logger.warning(f"update_hardware_info: switch not found: {hostname}")
+                return
+
+            for key, value in fields.items():
+                if value:  # 取得できなかった項目(None)で上書きしない
+                    setattr(row, key, value)
+
+            session.commit()
             session.close()
-            logger.warning(f"update_hardware_info: switch not found: {hostname}")
-            return
-
-        for key, value in fields.items():
-            if value:  # 取得できなかった項目(None)で上書きしない
-                setattr(row, key, value)
-
-        session.commit()
-        session.close()
-        logger.info(f"hardware info updated: {hostname}")
+            logger.info(f"hardware info updated: {hostname}")
 
     @staticmethod
     def fetch_by_ip(ip_address: str) -> Optional[dict]:
@@ -131,4 +131,3 @@ class Switch(BaseDatabase):
         }
         session.close()
         return result
-    

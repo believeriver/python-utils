@@ -1,6 +1,7 @@
 import sys
 import os
 import datetime
+import threading
 
 from sqlalchemy import Column, DateTime, Integer, create_engine
 from sqlalchemy.orm import declarative_base
@@ -9,6 +10,8 @@ from sqlalchemy.orm import sessionmaker
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config, setup_logger
 
+db_write_lock = threading.Lock()
+
 
 class Database(object):
     def __init__(self) -> None:
@@ -16,7 +19,10 @@ class Database(object):
         self.engine = create_engine(
             self.url,
             echo=False,
-            connect_args={"check_same_thread": False})
+            connect_args={
+                "check_same_thread": False,
+                "timeout": 30,  # ロック待機の最大秒数(デフォルト5秒から延長)
+            })
         self.log = self._set_logger(level=Config.LEVEL)
         # logger.info({'action': 'db.py', 'db': self.url})
         self.connect_db()

@@ -9,7 +9,7 @@ from sqlalchemy.orm import relationship
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import Config, setup_logger
-from models.db import BaseDatabase, database
+from models.db import BaseDatabase, database, db_write_lock
 from models.switch import Switch
 
 logger = setup_logger("CdpNeighbor", Config.LEVEL)
@@ -61,77 +61,78 @@ class CdpNeighbor(BaseDatabase):
             "neighbor_chassis_mac": "aa:bb:cc:dd:ee:ff",
         }, ...]
         """
-        session = database.connect_db()
-        now = datetime.datetime.utcnow()
+        with db_write_lock:
+            session = database.connect_db()
+            now = datetime.datetime.utcnow()
 
-        existing_rows = session.query(CdpNeighbor).filter(
-            CdpNeighbor.switch_id == switch_id
-        ).all()
-        existing_map = {row.local_interface: row for row in existing_rows}
-        seen_ports = set()
+            existing_rows = session.query(CdpNeighbor).filter(
+                CdpNeighbor.switch_id == switch_id
+            ).all()
+            existing_map = {row.local_interface: row for row in existing_rows}
+            seen_ports = set()
 
-        for entry in collected_neighbors:
-            local_if = entry["local_interface"]
-            seen_ports.add(local_if)
-            row = existing_map.get(local_if)
+            for entry in collected_neighbors:
+                local_if = entry["local_interface"]
+                seen_ports.add(local_if)
+                row = existing_map.get(local_if)
 
-            resolved_id = CdpNeighbor._resolve_neighbor_switch_id(
-                session, entry.get("neighbor_chassis_mac"), entry["neighbor_hostname_raw"]
-            )
-
-            unchanged = (
-                row is not None
-                and row.neighbor_hostname_raw == entry["neighbor_hostname_raw"]
-                and row.neighbor_interface == entry.get("neighbor_interface")
-                and row.neighbor_chassis_mac == entry.get("neighbor_chassis_mac")
-            )
-
-            if row is None:
-                session.add(CdpNeighbor(
-                    switch_id=switch_id, local_interface=local_if,
-                    neighbor_hostname_raw=entry["neighbor_hostname_raw"],
-                    neighbor_interface=entry.get("neighbor_interface"),
-                    neighbor_platform=entry.get("neighbor_platform"),
-                    neighbor_chassis_mac=entry.get("neighbor_chassis_mac"),
-                    resolved_switch_id=resolved_id,
-                ))
-                logger.info(f"new neighbor: {local_if} -> {entry['neighbor_hostname_raw']}")
-
-            elif unchanged:
-                row.updated_at = now
-
-            else:
-                session.add(CdpNeighborHistory(
-                    switch_id=row.switch_id, local_interface=row.local_interface,
-                    neighbor_hostname_raw=row.neighbor_hostname_raw,
-                    neighbor_interface=row.neighbor_interface,
-                    valid_from=row.created_at, valid_to=now,
-                ))
-                logger.info(
-                    f"neighbor changed: {local_if} {row.neighbor_hostname_raw} -> {entry['neighbor_hostname_raw']}"
+                resolved_id = CdpNeighbor._resolve_neighbor_switch_id(
+                    session, entry.get("neighbor_chassis_mac"), entry["neighbor_hostname_raw"]
                 )
-                row.neighbor_hostname_raw = entry["neighbor_hostname_raw"]
-                row.neighbor_interface = entry.get("neighbor_interface")
-                row.neighbor_platform = entry.get("neighbor_platform")
-                row.neighbor_chassis_mac = entry.get("neighbor_chassis_mac")
-                row.resolved_switch_id = resolved_id
-                row.created_at = now
-                row.updated_at = now
 
-        # 今回出てこなかったポート = ケーブル抜け・撤去等とみなしてhistory化
-        for local_if, row in existing_map.items():
-            if local_if not in seen_ports:
-                session.add(CdpNeighborHistory(
-                    switch_id=row.switch_id, local_interface=row.local_interface,
-                    neighbor_hostname_raw=row.neighbor_hostname_raw,
-                    neighbor_interface=row.neighbor_interface,
-                    valid_from=row.created_at, valid_to=now,
-                ))
-                logger.info(f"neighbor disappeared: {local_if} (was {row.neighbor_hostname_raw})")
-                session.delete(row)
+                unchanged = (
+                    row is not None
+                    and row.neighbor_hostname_raw == entry["neighbor_hostname_raw"]
+                    and row.neighbor_interface == entry.get("neighbor_interface")
+                    and row.neighbor_chassis_mac == entry.get("neighbor_chassis_mac")
+                )
 
-        session.commit()
-        session.close()
+                if row is None:
+                    session.add(CdpNeighbor(
+                        switch_id=switch_id, local_interface=local_if,
+                        neighbor_hostname_raw=entry["neighbor_hostname_raw"],
+                        neighbor_interface=entry.get("neighbor_interface"),
+                        neighbor_platform=entry.get("neighbor_platform"),
+                        neighbor_chassis_mac=entry.get("neighbor_chassis_mac"),
+                        resolved_switch_id=resolved_id,
+                    ))
+                    logger.info(f"new neighbor: {local_if} -> {entry['neighbor_hostname_raw']}")
+
+                elif unchanged:
+                    row.updated_at = now
+
+                else:
+                    session.add(CdpNeighborHistory(
+                        switch_id=row.switch_id, local_interface=row.local_interface,
+                        neighbor_hostname_raw=row.neighbor_hostname_raw,
+                        neighbor_interface=row.neighbor_interface,
+                        valid_from=row.created_at, valid_to=now,
+                    ))
+                    logger.info(
+                        f"neighbor changed: {local_if} {row.neighbor_hostname_raw} -> {entry['neighbor_hostname_raw']}"
+                    )
+                    row.neighbor_hostname_raw = entry["neighbor_hostname_raw"]
+                    row.neighbor_interface = entry.get("neighbor_interface")
+                    row.neighbor_platform = entry.get("neighbor_platform")
+                    row.neighbor_chassis_mac = entry.get("neighbor_chassis_mac")
+                    row.resolved_switch_id = resolved_id
+                    row.created_at = now
+                    row.updated_at = now
+
+            # 今回出てこなかったポート = ケーブル抜け・撤去等とみなしてhistory化
+            for local_if, row in existing_map.items():
+                if local_if not in seen_ports:
+                    session.add(CdpNeighborHistory(
+                        switch_id=row.switch_id, local_interface=row.local_interface,
+                        neighbor_hostname_raw=row.neighbor_hostname_raw,
+                        neighbor_interface=row.neighbor_interface,
+                        valid_from=row.created_at, valid_to=now,
+                    ))
+                    logger.info(f"neighbor disappeared: {local_if} (was {row.neighbor_hostname_raw})")
+                    session.delete(row)
+
+            session.commit()
+            session.close()
 
     @staticmethod
     def fetch_topology() -> List[dict]:
@@ -216,8 +217,6 @@ class CdpNeighbor(BaseDatabase):
         nodes = [{"hostname": h, "ip_address": ip, "resolved": True} for h, ip in known.items()]
         nodes += [{"hostname": h, "ip_address": None, "resolved": False} for h in unknown]
         return nodes
-
-    # models/cdp_neighbor.py に追加
 
     @staticmethod
     def fetch_topology_subgraph(center_hostname: str, max_hops: int = 2) -> dict:

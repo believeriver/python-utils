@@ -9,7 +9,7 @@ from sqlalchemy.orm import relationship
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import Config, setup_logger
-from models.db import BaseDatabase, database
+from models.db import BaseDatabase, database, db_write_lock
 from models.switch import Switch
 
 logger = setup_logger("MacAddressEntry", Config.LEVEL)
@@ -40,55 +40,56 @@ class MacAddressEntry(BaseDatabase):
         - ポート変化あり → 旧区間をhistoryに記録して更新
         - 今回出てこなかったMAC → 旧区間をhistoryに記録して削除
         """
-        session = database.connect_db()
-        now = datetime.datetime.utcnow()
+        with db_write_lock:
+            session = database.connect_db()
+            now = datetime.datetime.utcnow()
 
-        existing_rows = session.query(MacAddressEntry).filter(
-            MacAddressEntry.switch_id == switch_id
-        ).all()
-        existing_map = {(row.vlan, row.mac_address): row for row in existing_rows}
+            existing_rows = session.query(MacAddressEntry).filter(
+                MacAddressEntry.switch_id == switch_id
+            ).all()
+            existing_map = {(row.vlan, row.mac_address): row for row in existing_rows}
 
-        seen_keys = set()
+            seen_keys = set()
 
-        for entry in collected_entries:
-            key = (entry["vlan"], entry["mac_address"])
-            seen_keys.add(key)
-            row = existing_map.get(key)
+            for entry in collected_entries:
+                key = (entry["vlan"], entry["mac_address"])
+                seen_keys.add(key)
+                row = existing_map.get(key)
 
-            if row is None:
-                session.add(MacAddressEntry(
-                    switch_id=switch_id, vlan=entry["vlan"],
-                    mac_address=entry["mac_address"], port=entry["port"],
-                ))
-                logger.info(f"new mac: {entry['mac_address']} vlan{entry['vlan']} -> {entry['port']}")
+                if row is None:
+                    session.add(MacAddressEntry(
+                        switch_id=switch_id, vlan=entry["vlan"],
+                        mac_address=entry["mac_address"], port=entry["port"],
+                    ))
+                    logger.info(f"new mac: {entry['mac_address']} vlan{entry['vlan']} -> {entry['port']}")
 
-            elif row.port == entry["port"]:
-                row.updated_at = now
+                elif row.port == entry["port"]:
+                    row.updated_at = now
 
-            else:
-                session.add(MacAddressHistory(
-                    switch_id=row.switch_id, vlan=row.vlan, mac_address=row.mac_address,
-                    port=row.port, valid_from=row.created_at, valid_to=now,
-                ))
-                logger.info(
-                    f"mac moved: {row.mac_address} vlan{row.vlan} {row.port} -> {entry['port']}"
-                )
-                row.port = entry["port"]
-                row.created_at = now
-                row.updated_at = now
+                else:
+                    session.add(MacAddressHistory(
+                        switch_id=row.switch_id, vlan=row.vlan, mac_address=row.mac_address,
+                        port=row.port, valid_from=row.created_at, valid_to=now,
+                    ))
+                    logger.info(
+                        f"mac moved: {row.mac_address} vlan{row.vlan} {row.port} -> {entry['port']}"
+                    )
+                    row.port = entry["port"]
+                    row.created_at = now
+                    row.updated_at = now
 
-        # 今回出てこなかったMAC = 消えたとみなしてhistory化
-        for key, row in existing_map.items():
-            if key not in seen_keys:
-                session.add(MacAddressHistory(
-                    switch_id=row.switch_id, vlan=row.vlan, mac_address=row.mac_address,
-                    port=row.port, valid_from=row.created_at, valid_to=now,
-                ))
-                logger.info(f"mac disappeared: {row.mac_address} vlan{row.vlan} (was {row.port})")
-                session.delete(row)
+            # 今回出てこなかったMAC = 消えたとみなしてhistory化
+            for key, row in existing_map.items():
+                if key not in seen_keys:
+                    session.add(MacAddressHistory(
+                        switch_id=row.switch_id, vlan=row.vlan, mac_address=row.mac_address,
+                        port=row.port, valid_from=row.created_at, valid_to=now,
+                    ))
+                    logger.info(f"mac disappeared: {row.mac_address} vlan{row.vlan} (was {row.port})")
+                    session.delete(row)
 
-        session.commit()
-        session.close()
+            session.commit()
+            session.close()
 
     @staticmethod
     def fetch_by_mac(mac_address: str) -> Optional[dict]:
