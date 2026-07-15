@@ -102,6 +102,7 @@ class MacAddressEntry(BaseDatabase):
             return None
         result = {
             "switch_hostname": row.switch.hostname,
+            "switch_ip_address": row.switch.ip_address,  # 追加
             "location": row.switch.location,
             "vlan": row.vlan,
             "port": row.port,
