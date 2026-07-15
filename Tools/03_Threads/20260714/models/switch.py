@@ -28,6 +28,28 @@ class Switch(BaseDatabase):
     is_active = Column(Boolean, default=True, nullable=False)
 
     @staticmethod
+    def fetch_all() -> List[dict]:
+        """is_activeに関わらず全件返す(一覧・検索画面用)"""
+        session = database.connect_db()
+        rows = session.query(Switch).all()
+        result = [{
+            "id": row.id,
+            "hostname": row.hostname,
+            "ip_address": row.ip_address,
+            "hardware_model": row.hardware_model,
+            "base_mac_address": row.base_mac_address,
+            "service_tag": row.service_tag,
+            "firmware_version": row.firmware_version,
+            "location": row.location,
+            "switch_type": row.switch_type,
+            "role": row.role,
+            "is_active": row.is_active,
+            "updated_at": row.updated_at,
+        } for row in rows]
+        session.close()
+        return result
+
+    @staticmethod
     def get_or_create(hostname: str, ip_address: str, hardware_model: str,
                        switch_type: str, role: str, **kwargs) -> "Switch":
         with db_write_lock:
