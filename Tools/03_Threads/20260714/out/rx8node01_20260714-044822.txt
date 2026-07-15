@@ -1,0 +1,16 @@
+terminal length 0
+show mac address-table
+[root@rx8node01 ~]# terminal length 0
+ash: terminal: コマンドが見つかりませんでした...
+[root@rx8node01 ~]# show mac address-table
+Mac Address Table
+-------------------------------------------
+
+Vlan    Mac Address       Type        Ports
+----    -----------       --------    -----
+  10    aabb.cc00.1101    STATIC      CPU
+  10    aabb.cc00.2201    DYNAMIC     Gi0/1
+  10    0011.2233.4455    DYNAMIC     Gi0/10
+  10    aabb.ccdd.ee01    DYNAMIC     Gi0/2
+Total Mac Addresses for this criterion: 4
+[root@rx8node01 ~]# 

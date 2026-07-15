@@ -1,0 +1,138 @@
+from abc import ABC, abstractmethod
+import queue
+import threading
+import json
+from typing import List, Type
+
+from config import Config, setup_logger
+from reporter import IReporterInterface, ReporterSample
+from executor import ISSHExecutorInterface, ServerInfo
+from models.switch import Switch
+
+#-----------------------------
+# Thread Worker
+#-----------------------------
+class IThreadWorkerInterface(ABC):
+    def __init__(self,
+                 executor: Type[ISSHExecutorInterface],
+                 _queue, workers=1, timeout=Config.TIMEOUT, level=Config.LEVEL):
+        self.executor = executor
+        self.queue = _queue
+        self.workers = workers
+        self.timeout_s = timeout
+        self.logger = setup_logger(self.name, level)
+        self.result_lock = threading.Lock()
+        self.results = []
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+    @abstractmethod
+    def run(self):
+        pass
+
+    @abstractmethod
+    def worker(self):
+        pass
+
+
+class ThreadWorkers(IThreadWorkerInterface):
+    """
+    QueueからServerInfoを取り出し、SSH Executorを実行するスレッドワーカーの例。
+     - executor: ISSHExecutorInterfaceを継承したクラスを指定
+     - _queue: ServerInfoオブジェクトを入れたQueueを指定
+     - workers: スレッド数
+     - timeout: SSHコマンドのタイムアウト秒数
+     - level: ログレベル
+     - 結果はself.resultsに格納（必要に応じてロックを使用して安全にアクセス）
+     - 結果の格納方法は必要に応じて変更してください（例: self.results.append((server_info, res))など）
+     - ログにはスレッド名も含まれるので、どのスレッドがどのサーバーを処理しているかがわかるようになっています。
+     - 例: ThreadWorkers(executor=FetchLSDFExecutor, _queue=q, workers=5, timeout=10, level=logging.DEBUG).run()
+     - 例: ThreadWorkers(executor=FetchFileListExecutor, _queue=q, workers=5, timeout=10, level=logging.DEBUG).run()
+    """
+    @property
+    def name(self) -> str:
+        return "ThreadWorkers"
+
+    def run(self):
+        ts = []
+        for _ in range(self.workers):
+            t = threading.Thread(target=self.worker)
+            t.start()
+            ts.append(t)
+        [self.queue.put(None) for _ in range(len(ts))]
+        [t.join() for t in ts]
+
+    def worker(self):
+        self.logger.debug('workers start')
+        while True:
+            item = self.queue.get()
+            if item is None:
+                break
+            self.logger.info({'thread': (item.hostname, item.ipaddr, item.username, item.password)})
+            executor = self.executor(server_info=item, timeout=self.timeout_s, level=self.logger.level)
+            res = executor.execute_command()
+            messages = {item.hostname: res}
+            self.logger.info(f"done: {messages}")
+            # self.logger.info(f"done:\n{pformat(messages, indent=2)}")
+
+            with self.result_lock:
+                self.results.append({item.hostname: res})
+
+            self.logger.debug(type(res))
+            if type(res) == list:
+                self.logger.debug(json.dumps(res, indent=2, ensure_ascii=False))
+            else:
+                self.logger.debug(res)
+            self.queue.task_done()
+        self.logger.debug('workers end')
+
+
+#-----------------------------
+# Set Queue
+#-----------------------------
+def set_queue(_targets: List[dict]):
+    q = queue.Queue()
+    for t in _targets:
+        username = t.get("username", Config.USERNAME)
+        if username == "" or username is None:
+            username = Config.USERNAME
+        password = t.get("password", Config.PASSWORD)
+        if password == "" or password is None:
+            password = Config.PASSWORD
+
+        # add
+        hostname = t.get("hostname", None)
+        switch = Switch.fetch_by_hostname(hostname) if hostname else None
+        hardware_model = switch["hardware_model"] if switch else "unknown"
+
+        server_info = ServerInfo(
+            ipaddr=t.get("ipaddr", None),
+            hostname=hostname,
+            username=username,
+            password=password,
+            hardware_model=hardware_model,)
+        q.put(server_info)
+    return q
+
+
+#-----------------------------
+# Main
+#-----------------------------
+def main_threads(_q,
+                 workers=1,
+                 executor_cls: Type[ISSHExecutorInterface] = None,
+                 reporter_cls: Type[IReporterInterface] = ReporterSample,
+                 level=Config.LEVEL):
+    worker = ThreadWorkers(
+        executor=executor_cls,
+        _queue=_q,
+        workers=workers,
+        timeout=Config.TIMEOUT,
+        level=level)
+    worker.run()
+
+    reporter_cls.print_results(worker.results)
+    return worker.results
