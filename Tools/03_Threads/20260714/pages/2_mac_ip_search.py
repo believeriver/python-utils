@@ -127,20 +127,16 @@ def render_search_page(config: dict, username: str):
 
     st.subheader("現在の接続状況")
     if current:
-        # c1, c2, c3, c4 = st.columns(4)
-        # c1.metric("接続スイッチ", current["switch_hostname"])
-        # c2.metric("ポート", current["port"])
-        # c3.metric("VLAN", current["vlan"])
-        # c4.metric("最終確認", current["last_seen"].strftime("%Y-%m-%d %H:%M"))
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3 = st.columns(3)
         c1.metric("接続スイッチ", current["switch_hostname"])
-        c2.metric("スイッチIP", current["switch_ip_address"])
-        c3.metric("設置場所", current["location"] or "-")
-        c4.metric("最終確認", current["last_seen"].strftime("%Y-%m-%d %H:%M"))
+        c2.metric("ポート", current["port"])
+        c3.metric("VLAN", current["vlan"])
 
-        c5, c6 = st.columns(2)
-        c5.metric("ポート", current["port"])
-        c6.metric("VLAN", current["vlan"])
+        st.caption(
+            f"📍 設置場所: {current['location'] or '-'} ｜ "
+            f"🌐 スイッチIP: {current['switch_ip_address']} ｜ "
+            f"🕒 最終確認: {current['last_seen'].strftime('%Y-%m-%d %H:%M')}"
+        )
     else:
         # st.info("現在このMACアドレスは、どのスイッチにも接続が確認されていません（過去の履歴のみ存在）。")
         session = database.connect_db()
