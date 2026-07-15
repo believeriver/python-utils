@@ -1,8 +1,8 @@
 """
-Streamlit ページ: スイッチ登録状況一覧
+Streamlit ページ: スイッチ詳細（ポート・MACアドレステーブル）
 - YAML ベースのユーザー認証（既存ページと共通）
-- DBに登録済みのスイッチ一覧を検索・ステータス確認
-- 選択したスイッチのMACアドレステーブルをARP情報(IPアドレス)と突き合わせて表示
+- ホスト名/IPアドレス/設置場所で検索 → 1台選択 → MACアドレステーブルをARPで
+  IP紐付けして表示
 """
 
 from __future__ import annotations
@@ -17,6 +17,8 @@ from yaml.loader import SafeLoader
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from models.switch import Switch
+from models.mac_address import MacAddressEntry
+from models.arp_entry import ArpEntry
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
 
@@ -49,38 +51,24 @@ def can(config: dict, role: str, permission: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# データ取得：スイッチ一覧
+# データ取得：スイッチ検索用の一覧（軽量フィールドのみ）
 # ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_switch_dataframe() -> pd.DataFrame:
     switches = Switch.fetch_all()
     if not switches:
-        return pd.DataFrame(columns=[
-            "ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
-            "ステータス", "収集状況", "最終更新",
-        ])
+        return pd.DataFrame(columns=["ホスト名", "IPアドレス", "設置場所", "役割", "ステータス"])
 
     df = pd.DataFrame(switches)
     df["ステータス"] = df["is_active"].map({True: "🟢 有効", False: "⚪ 無効"})
-    df["収集状況"] = df["hardware_model"].apply(
-        lambda m: "⚠️ 未収集" if m == "unknown" else "✅ 収集済み"
-    )
-    df["最終更新"] = df["updated_at"].apply(
-        lambda v: v.strftime("%Y-%m-%d %H:%M") if pd.notna(v) else "-"
-    )
-
     df = df.rename(columns={
         "hostname": "ホスト名",
         "ip_address": "IPアドレス",
-        "hardware_model": "機種",
         "location": "設置場所",
-        "switch_type": "種類",
         "role": "役割",
     })
-
-    return df[["ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
-               "ステータス", "収集状況", "最終更新"]]
+    return df[["ホスト名", "IPアドレス", "設置場所", "役割", "ステータス"]]
 
 
 # ---------------------------------------------------------------------------
@@ -115,92 +103,101 @@ def fetch_mac_table_with_ip(switch_id: int) -> pd.DataFrame:
 # ページ本体 UI
 # ---------------------------------------------------------------------------
 
-def render_switch_list_page(config: dict, role: str):
-    st.title("📋 スイッチ登録状況一覧")
-    st.caption("DBに登録済みのスイッチと、収集状況を確認します")
+def render_switch_detail_page(config: dict, role: str):
+    st.title("🔎 スイッチ詳細")
+    st.caption("スイッチを検索して、ポート状況・MACアドレステーブルを確認します")
 
-    if st.button("🔄 表示を更新"):
-        st.cache_data.clear()
-        st.rerun()
-
-    with st.spinner("データを取得中..."):
-        df = fetch_switch_dataframe()
+    df = fetch_switch_dataframe()
 
     if df.empty:
-        st.warning("登録済みのスイッチがありません。CSV仮登録を実行してください。")
+        st.warning("登録済みのスイッチがありません。")
         return
 
-    # ---- 集計メトリクス ----
-    total = len(df)
-    active_count = (df["ステータス"] == "🟢 有効").sum()
-    uncollected_count = (df["収集状況"] == "⚠️ 未収集").sum()
+    # ---- 検索(部分一致、500台規模を想定しドロップダウンは使わない) ----
+    query = st.text_input(
+        "ホスト名・IPアドレス・設置場所で検索",
+        placeholder="例: rx8headnode / 192.168.64 / UTM",
+    )
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric("総登録数", total)
-    m2.metric("有効", int(active_count))
-    m3.metric("未収集(Inventory未実施)", int(uncollected_count))
+    if not query:
+        st.info("検索キーワードを入力してください。")
+        return
+
+    matched = df[
+        df["ホスト名"].str.contains(query, case=False, na=False)
+        | df["IPアドレス"].str.contains(query, case=False, na=False)
+        | df["設置場所"].str.contains(query, case=False, na=False)
+    ]
+
+    if matched.empty:
+        st.warning(f"`{query}` に該当するスイッチが見つかりませんでした。")
+        return
+
+    if len(matched) > 1:
+        st.caption(f"{len(matched)}件ヒットしました。対象を選択してください。")
+        selected_hostname = st.selectbox("対象スイッチ", options=matched["ホスト名"].tolist())
+    else:
+        selected_hostname = matched["ホスト名"].iloc[0]
+
+    switch_row = matched[matched["ホスト名"] == selected_hostname].iloc[0]
 
     st.divider()
 
-    # ---- 検索・フィルタUI ----
-    with st.expander("🔎 検索・フィルタ", expanded=True):
-        f_col1, f_col2, f_col3 = st.columns(3)
+    # ---- 基本情報 ----
+    st.subheader(f"📟 {selected_hostname}")
+    b1, b2, b3, b4 = st.columns(4)
+    b1.metric("IPアドレス", switch_row["IPアドレス"])
+    b2.metric("設置場所", switch_row["設置場所"] or "-")
+    b3.metric("役割", switch_row["役割"])
+    b4.metric("ステータス", switch_row["ステータス"])
 
-        with f_col1:
-            hostname_filter = st.text_input("ホスト名（部分一致）", placeholder="例: rx8")
+    st.divider()
 
-        with f_col2:
-            location_filter = st.text_input("設置場所（部分一致）", placeholder="例: UTM")
+    # ---- MACアドレステーブル ----
+    st.subheader("🔌 MACアドレステーブル")
 
-        with f_col3:
-            ip_filter = st.text_input("IPアドレス（部分一致）", placeholder="例: 192.168.64")
+    switch_full = Switch.fetch_by_hostname(selected_hostname)
+    if switch_full is None:
+        st.warning("スイッチ情報の取得に失敗しました。")
+        return
 
-        f_col4, f_col5, f_col6 = st.columns(3)
+    with st.spinner("MACアドレステーブルを取得中..."):
+        mac_df = fetch_mac_table_with_ip(switch_full["id"])
 
-        with f_col4:
-            role_options = sorted(df["役割"].dropna().unique().tolist())
-            sel_roles = st.multiselect("役割", options=role_options)
+    if mac_df.empty:
+        st.info(f"`{selected_hostname}` のMACアドレステーブルはまだ収集されていません。")
+        return
 
-        with f_col5:
-            status_options = ["🟢 有効", "⚪ 無効"]
-            sel_status = st.multiselect("ステータス", options=status_options)
+    mm1, mm2 = st.columns(2)
+    mm1.metric("登録エントリ数", len(mac_df))
+    mm2.metric("IP不明のエントリ", int((mac_df["IPアドレス"] == "不明").sum()))
 
-        with f_col6:
-            collect_options = ["✅ 収集済み", "⚠️ 未収集"]
-            sel_collect = st.multiselect("収集状況", options=collect_options)
+    # ---- ポート/VLANでの絞り込み ----
+    with st.expander("🔎 絞り込み", expanded=False):
+        fc1, fc2 = st.columns(2)
+        with fc1:
+            vlan_options = sorted(mac_df["VLAN"].dropna().unique().tolist())
+            sel_vlans = st.multiselect("VLAN", options=vlan_options)
+        with fc2:
+            port_filter = st.text_input("ポート（部分一致）", placeholder="例: Gi1/0")
 
-    # ---- フィルタ適用 ----
-    filtered = df.copy()
-    if hostname_filter:
-        filtered = filtered[filtered["ホスト名"].str.contains(hostname_filter, case=False, na=False)]
-    if location_filter:
-        filtered = filtered[filtered["設置場所"].str.contains(location_filter, case=False, na=False)]
-    if ip_filter:
-        filtered = filtered[filtered["IPアドレス"].str.contains(ip_filter, na=False)]
-    if sel_roles:
-        filtered = filtered[filtered["役割"].isin(sel_roles)]
-    if sel_status:
-        filtered = filtered[filtered["ステータス"].isin(sel_status)]
-    if sel_collect:
-        filtered = filtered[filtered["収集状況"].isin(sel_collect)]
+    filtered_mac_df = mac_df.copy()
+    if sel_vlans:
+        filtered_mac_df = filtered_mac_df[filtered_mac_df["VLAN"].isin(sel_vlans)]
+    if port_filter:
+        filtered_mac_df = filtered_mac_df[
+            filtered_mac_df["ポート"].str.contains(port_filter, case=False, na=False)
+        ]
 
-    st.caption(f"表示中: {len(filtered)}件 / 全{total}件")
+    st.caption(f"表示中: {len(filtered_mac_df)}件 / 全{len(mac_df)}件")
+    st.dataframe(filtered_mac_df, use_container_width=True, hide_index=True)
 
-    # ---- テーブル表示 ----
-    st.dataframe(
-        filtered,
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    # ---- CSVエクスポート（admin のみ）----
     if can(config, role, "can_download"):
         st.download_button(
             label="📥 CSV ダウンロード",
-            data=filtered.to_csv(index=False).encode("utf-8-sig"),
-            file_name="switch_list.csv",
+            data=filtered_mac_df.to_csv(index=False).encode("utf-8-sig"),
+            file_name=f"mac_table_{selected_hostname}.csv",
             mime="text/csv",
-            key="switch_list_download",
         )
 
 
@@ -209,7 +206,7 @@ def render_switch_list_page(config: dict, role: str):
 # ---------------------------------------------------------------------------
 
 def main():
-    st.set_page_config(page_title="スイッチ登録状況", layout="wide")
+    st.set_page_config(page_title="スイッチ詳細", layout="wide")
 
     config = load_config()
     authenticator = setup_authenticator(config)
@@ -231,7 +228,7 @@ def main():
             st.divider()
             authenticator.logout("ログアウト", location="sidebar")
 
-        render_switch_list_page(config, role)
+        render_switch_detail_page(config, role)
 
     elif auth_status is False:
         st.error("❌ ユーザー名またはパスワードが正しくありません")
