@@ -18,7 +18,8 @@ class Switch(BaseDatabase):
     ip_address = Column(String(45), nullable=False)
     hardware_model = Column(String(32), nullable=False)
     base_mac_address = Column(String(17), nullable=True)
-    service_tag = Column(String(32), unique=True, nullable=True)
+    # service_tag = Column(String(32), unique=True, nullable=True)
+    service_tag = Column(String(32), nullable=True)  # unique=True を削除
     firmware_version = Column(String(32), nullable=True)
     location = Column(String(128), nullable=True)
     switch_type = Column(String(8), nullable=False)     # "L2" / "L3"
@@ -169,3 +170,24 @@ class Switch(BaseDatabase):
         }
         session.close()
         return result
+
+    @staticmethod
+    def find_duplicate_service_tags() -> List[dict]:
+        """is_active=Trueのスイッチ間で、service_tagが重複しているものを検出する"""
+        session = database.connect_db()
+        rows = session.query(Switch).filter(
+            Switch.is_active == True,
+            Switch.service_tag.isnot(None),
+        ).all()
+
+        from collections import defaultdict
+        tag_map = defaultdict(list)
+        for row in rows:
+            tag_map[row.service_tag].append(row.hostname)
+
+        session.close()
+
+        return [
+            {"service_tag": tag, "hostnames": hosts}
+            for tag, hosts in tag_map.items() if len(hosts) > 1
+        ]

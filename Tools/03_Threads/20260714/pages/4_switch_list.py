@@ -140,6 +140,14 @@ def render_switch_list_page(config: dict, role: str):
     m2.metric("有効", int(active_count))
     m3.metric("未収集(Inventory未実施)", int(uncollected_count))
 
+    # ---- サービスタグ重複チェック ----
+    duplicates = Switch.find_duplicate_service_tags()
+    if duplicates:
+        with st.expander(f"⚠️ サービスタグ重複: {len(duplicates)}件（有効なスイッチ間）", expanded=True):
+            for d in duplicates:
+                st.warning(f"サービスタグ `{d['service_tag']}` が複数の有効なスイッチに登録されています: {', '.join(d['hostnames'])}")
+
+
     st.divider()
 
     # ---- 検索・フィルタUI ----
