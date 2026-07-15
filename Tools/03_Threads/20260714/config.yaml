@@ -21,7 +21,9 @@ roles:
     can_refresh: true      # 再取得ボタンの表示
     can_download: true     # CSVダウンロードの表示
     can_view_topology: true
+    can_edit_switch: true    # 追加
   viewer:
     can_refresh: false
     can_download: false
     can_view_topology: false
+    can_edit_switch: false   # 追加
