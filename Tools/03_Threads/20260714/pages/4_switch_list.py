@@ -2,6 +2,7 @@
 Streamlit ページ: スイッチ登録状況一覧
 - YAML ベースのユーザー認証（既存ページと共通）
 - DBに登録済みのスイッチ一覧を検索・ステータス確認
+- 選択したスイッチのMACアドレステーブルをARP情報(IPアドレス)と突き合わせて表示
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ from yaml.loader import SafeLoader
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from models.switch import Switch
+from models.mac_address import MacAddressEntry
+from models.arp_entry import ArpEntry
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
 
@@ -48,7 +51,7 @@ def can(config: dict, role: str, permission: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# データ取得
+# データ取得：スイッチ一覧
 # ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -80,6 +83,34 @@ def fetch_switch_dataframe() -> pd.DataFrame:
 
     return df[["ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
                "ステータス", "収集状況", "最終更新"]]
+
+
+# ---------------------------------------------------------------------------
+# データ取得：MACアドレステーブル（ARPでIP紐付け）
+# ---------------------------------------------------------------------------
+
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_mac_table_with_ip(switch_id: int) -> pd.DataFrame:
+    """指定スイッチのMACアドレステーブルに、ARP情報からIPアドレスを紐付けて返す"""
+    entries = MacAddressEntry.fetch_by_switch(switch_id)
+    if not entries:
+        return pd.DataFrame(columns=["VLAN", "MACアドレス", "ポート", "IPアドレス", "最終確認"])
+
+    mac_list = [e["mac_address"] for e in entries]
+    mac_to_ip = ArpEntry.fetch_mac_to_ip_map(mac_list)
+
+    rows = []
+    for e in entries:
+        ip_list = mac_to_ip.get(e["mac_address"], [])
+        rows.append({
+            "VLAN": e["vlan"],
+            "MACアドレス": e["mac_address"],
+            "ポート": e["port"],
+            "IPアドレス": ", ".join(ip_list) if ip_list else "不明",
+            "最終確認": e["last_seen"].strftime("%Y-%m-%d %H:%M") if e["last_seen"] else "-",
+        })
+
+    return pd.DataFrame(rows).sort_values(["VLAN", "ポート"])
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +202,43 @@ def render_switch_list_page(config: dict, role: str):
             data=filtered.to_csv(index=False).encode("utf-8-sig"),
             file_name="switch_list.csv",
             mime="text/csv",
+            key="switch_list_download",
         )
+
+    # ---- MACアドレステーブル表示 ----
+    st.divider()
+    st.subheader("🔌 MACアドレステーブル")
+    st.caption("選択したスイッチのMACアドレステーブルを、ARP情報からIPアドレスと突き合わせて表示します")
+
+    hostname_options = sorted(df["ホスト名"].tolist())
+    selected_hostname = st.selectbox("スイッチを選択", options=["(選択してください)"] + hostname_options)
+
+    if selected_hostname != "(選択してください)":
+        switch_full = Switch.fetch_by_hostname(selected_hostname)
+
+        if switch_full is None:
+            st.warning("スイッチ情報の取得に失敗しました。")
+        else:
+            with st.spinner("MACアドレステーブルを取得中..."):
+                mac_df = fetch_mac_table_with_ip(switch_full["id"])
+
+            if mac_df.empty:
+                st.info(f"`{selected_hostname}` のMACアドレステーブルはまだ収集されていません。")
+            else:
+                mm1, mm2 = st.columns(2)
+                mm1.metric("登録エントリ数", len(mac_df))
+                mm2.metric("IP不明のエントリ", int((mac_df["IPアドレス"] == "不明").sum()))
+
+                st.dataframe(mac_df, use_container_width=True, hide_index=True)
+
+                if can(config, role, "can_download"):
+                    st.download_button(
+                        label="📥 CSV ダウンロード",
+                        data=mac_df.to_csv(index=False).encode("utf-8-sig"),
+                        file_name=f"mac_table_{selected_hostname}.csv",
+                        mime="text/csv",
+                        key="mac_table_download",
+                    )
 
 
 # ---------------------------------------------------------------------------

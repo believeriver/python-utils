@@ -145,6 +145,21 @@ class ArpEntry(BaseDatabase):
         session.close()
         return result
 
+    @staticmethod
+    def fetch_mac_to_ip_map(mac_addresses: List[str]) -> Dict[str, List[str]]:
+        """MACアドレスのリストを渡し、MAC→IPアドレス一覧の対応表を返す(1MACに複数IPの可能性あり)"""
+        if not mac_addresses:
+            return {}
+        session = database.connect_db()
+        rows = session.query(ArpEntry).filter(
+            ArpEntry.mac_address.in_(mac_addresses)
+        ).all()
+        result: Dict[str, List[str]] = {}
+        for row in rows:
+            result.setdefault(row.mac_address, []).append(row.ip_address)
+        session.close()
+        return result
+
 
 class ArpHistory(BaseDatabase):
     """履歴：MACが変わった・消えた時だけ1行追加"""

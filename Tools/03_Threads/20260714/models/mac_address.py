@@ -111,6 +111,23 @@ class MacAddressEntry(BaseDatabase):
         session.close()
         return result
 
+    @staticmethod
+    def fetch_by_switch(switch_id: int) -> List[dict]:
+        """指定スイッチの現在のMACアドレステーブル全件を返す"""
+        session = database.connect_db()
+        rows = session.query(MacAddressEntry).filter(
+            MacAddressEntry.switch_id == switch_id
+        ).all()
+        result = [{
+            "vlan": row.vlan,
+            "mac_address": row.mac_address,
+            "port": row.port,
+            "first_seen": row.created_at,
+            "last_seen": row.updated_at,
+        } for row in rows]
+        session.close()
+        return result
+
 
 class MacAddressHistory(BaseDatabase):
     """履歴：ポート移動・消失があった時だけ1行追加"""
