@@ -140,3 +140,54 @@ print(stauth.Hasher(["実際のパスワード"]).generate())
 
 トポロジーを描画する
 pip install streamlit-agraph
+
+
+
+
+
+---
+2026.07.16
+マイグレーション
+# 事前バックアップ
+cp data/network_monitor.db data/network_monitor.db.bak_$(date +%Y%m%d)
+
+-- sqlite3 data/network_monitor.db で以下を実行
+
+BEGIN TRANSACTION;
+
+-- 1. 新しいテーブルを、service_tagのUNIQUE制約なしで作成
+CREATE TABLE switches_new (
+    hostname VARCHAR(64) NOT NULL,
+    ip_address VARCHAR(45) NOT NULL,
+    hardware_model VARCHAR(32) NOT NULL,
+    base_mac_address VARCHAR(17),
+    service_tag VARCHAR(32),
+    firmware_version VARCHAR(32),
+    location VARCHAR(128),
+    switch_type VARCHAR(8) NOT NULL,
+    role VARCHAR(16) NOT NULL,
+    data_vlan INTEGER,
+    ntp_servers VARCHAR(128),
+    is_active BOOLEAN NOT NULL,
+    id INTEGER NOT NULL,
+    created_at DATETIME,
+    updated_at DATETIME,
+    PRIMARY KEY (id),
+    UNIQUE (hostname)
+);
+
+-- 2. 既存データを新テーブルにコピー
+INSERT INTO switches_new SELECT
+    hostname, ip_address, hardware_model, base_mac_address, service_tag,
+    firmware_version, location, switch_type, role, data_vlan, ntp_servers,
+    is_active, id, created_at, updated_at
+FROM switches;
+
+-- 3. 古いテーブルを削除し、新テーブルを本来の名前にリネーム
+DROP TABLE switches;
+ALTER TABLE switches_new RENAME TO switches;
+
+COMMIT;
+
+sqlite3 data/network_monitor.db ".schema switches"
+UNIQUE (service_tag)の行が無くなっていれば成功です。
