@@ -250,6 +250,13 @@ def main(argv):
         from snmp_arp_sync import collect_arp_via_snmp
         collect_arp_via_snmp(Config.CORE_SWITCHES)
 
+    elif step == "7":
+        from utils import LivenessTargetDataset
+        from liveness_check import run_liveness_check
+        liveness_file = os.path.join(cur_dir, Config.SETTINGS_DIR, Config.LIVENESS_TARGET_CSV)
+        dataset = LivenessTargetDataset(liveness_file)
+        run_liveness_check(dataset.targets_list, workers=20)
+
     else:
         print("[ERROR] 引数は 1,2,3,4,5 のいずれかを指定してください")
         exit(1)

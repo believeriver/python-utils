@@ -52,3 +52,26 @@ class SwitchListDataset(object):
         return json.dumps(self.targets_list, indent=2, ensure_ascii=False)
 
 
+# utils.py に追加
+import csv
+from config import Config
+
+
+class LivenessTargetDataset:
+    """死活監視専用のターゲットCSV(liveness_targets.csv)を読み込むクラス"""
+
+    def __init__(self, csv_path: str = None):
+        self.csv_path = csv_path or Config.LIVENESS_TARGET_CSV
+        self.targets_list = self._load()
+
+    def _load(self) -> list:
+        targets = []
+        with open(self.csv_path, encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            reader.fieldnames = [name.strip() for name in reader.fieldnames]
+            for row in reader:
+                row = {k.strip(): (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
+                targets.append(row)
+        return targets
+
+

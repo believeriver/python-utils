@@ -24,7 +24,10 @@ class Config(object):
     REGISTER_FILE = "register.ini"
     SETTINGS_DIR = "settings"
     OUTPUT_DIR = "out"
+    LIVENESS_TARGET_CSV = "liveness_targets.csv"
     LEVEL = logging.WARN
+    # 死活監視専用のターゲットCSV(詳細収集用のSWITCH_LIST_CSVとは別ファイル)
+    # LIVENESS_TARGET_CSV = os.path.join(BASE_DIR, "liveness_targets.csv")
 
     # SET EXECUTOR_CLS
     executor_class_list = [
@@ -64,6 +67,8 @@ class Config(object):
         # 実際のコアスイッチが複数台あれば、同じ形式で追加
         # {"hostname": "core-sw02", "host": "192.168.0.2", "community": "public"},
     ]
+
+
 
 
 
