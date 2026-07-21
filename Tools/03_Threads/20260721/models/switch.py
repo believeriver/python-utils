@@ -49,37 +49,6 @@ class Switch(BaseDatabase):
         session.close()
         return result
 
-    # @staticmethod
-    # def get_or_create(hostname: str, ip_address: str, hardware_model: str,
-    #                    switch_type: str, role: str, **kwargs) -> "Switch":
-    #     with db_write_lock:
-    #         session = database.connect_db()
-    #         row = session.query(Switch).filter(Switch.hostname == hostname).first()
-    #
-    #         if row:
-    #             row.ip_address = ip_address
-    #             row.hardware_model = hardware_model
-    #             row.switch_type = switch_type
-    #             row.role = role
-    #             for key, value in kwargs.items():
-    #                 setattr(row, key, value)
-    #             session.add(row)
-    #             session.commit()
-    #             row = session.query(Switch).filter(Switch.hostname == hostname).first()
-    #             logger.info(f"updated switch: {hostname}")
-    #         else:
-    #             row = Switch(
-    #                 hostname=hostname, ip_address=ip_address, hardware_model=hardware_model,
-    #                 switch_type=switch_type, role=role, **kwargs,
-    #             )
-    #             session.add(row)
-    #             session.commit()
-    #             row = session.query(Switch).filter(Switch.hostname == hostname).first()
-    #             logger.info(f"created switch: {hostname}")
-    #
-    #         session.close()
-    #         return row
-
     @staticmethod
     def get_or_create(hostname: str, ip_address: str, hardware_model: str,
                       switch_type: str, role: str, **kwargs) -> "Switch":
@@ -112,7 +81,6 @@ class Switch(BaseDatabase):
 
             session.close()
             return row
-
 
     @staticmethod
     def fetch_all_active() -> List[dict]:
