@@ -59,9 +59,11 @@ def _validate_row(row: dict) -> list:
 
     return errors
 
-
-def register_switches_from_csv(csv_path: str) -> dict:
+# -----------------------------------------------------------------------
+# 2026.07.21 以前の旧バージョンの登録処理
+def register_switches_from_csv_v1(csv_path: str) -> dict:
     """
+    replace機能の実装前バージョン
     ①CSVからスイッチを仮登録する(スレッド化不要)。
     不備のある行はスキップし、記録する。
 
@@ -103,7 +105,8 @@ def register_switches_from_csv(csv_path: str) -> dict:
     return {"succeeded": succeeded, "failed": failed}
 
 
-def print_registration_report(result: dict) -> None:
+def print_registration_report_v1(result: dict) -> None:
+    # 旧バージョンのレポート出力
     print("=" * 60)
     print(f"[INFO] 登録成功: {len(result['succeeded'])}件")
     print(f"[INFO] 登録失敗: {len(result['failed'])}件")
@@ -115,6 +118,94 @@ def print_registration_report(result: dict) -> None:
             print(f"  行{item['row_number']} (hostname={item['hostname']}):")
             for err in item["errors"]:
                 print(f"    - {err}")
+    print("=" * 60)
+# -------------------------------------------------------------------------------
+
+
+def register_switches_from_csv(csv_path: str) -> dict:
+    """
+    本番：replace機能を実装したバージョン
+    ①CSVからスイッチを仮登録する(スレッド化不要)。
+    不備のある行はスキップし、記録する。
+    replaces列がある場合、対応する旧ホスト名を自動的に無効化する。
+
+    戻り値: {
+        "succeeded": [hostname, ...],
+        "failed": [{"row_number": int, "hostname": str, "errors": [str, ...]}, ...],
+        "deactivated": [{"old_hostname": str, "new_hostname": str}, ...],
+    }
+    """
+    succeeded = []
+    failed = []
+    deactivated = []
+
+    with open(csv_path, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        reader.fieldnames = [name.strip() for name in reader.fieldnames]
+
+        for row_number, raw_row in enumerate(reader, start=2):
+            row = _clean_row(raw_row)
+            errors = _validate_row(row)
+
+            if errors:
+                failed.append({
+                    "row_number": row_number,
+                    "hostname": row.get("hostname") or "(不明)",
+                    "errors": errors,
+                })
+                logger.warning(f"[SKIP] row={row_number} hostname={row.get('hostname')} errors={errors}")
+                continue
+
+            Switch.get_or_create(
+                hostname=row["hostname"],
+                ip_address=row["ipaddr"],
+                hardware_model="unknown",
+                switch_type=row["switch_type"],
+                role=row["role"],
+                location=row.get("location") or None,
+            )
+            succeeded.append(row["hostname"])
+
+            # replaces列があれば、旧ホスト名を自動的に無効化する
+            old_hostname = row.get("replaces")
+            if old_hostname:
+                if old_hostname == row["hostname"]:
+                    logger.warning(
+                        f"[SKIP replaces] row={row_number}: replacesが自分自身のホスト名と同じです: {old_hostname}"
+                    )
+                else:
+                    ok = Switch.deactivate(old_hostname)
+                    if ok:
+                        deactivated.append({"old_hostname": old_hostname, "new_hostname": row["hostname"]})
+                        logger.info(f"旧レコードを無効化しました: {old_hostname} -> {row['hostname']}")
+                    else:
+                        logger.warning(
+                            f"[replaces] 無効化対象が見つかりません: {old_hostname}(row={row_number})"
+                        )
+
+    return {"succeeded": succeeded, "failed": failed, "deactivated": deactivated}
+
+
+def print_registration_report(result: dict) -> None:
+    print("=" * 60)
+    print(f"[INFO] 登録成功: {len(result['succeeded'])}件")
+    print(f"[INFO] 登録失敗: {len(result['failed'])}件")
+    print(f"[INFO] 旧レコード自動無効化: {len(result['deactivated'])}件")
+
+    if result["failed"]:
+        print("-" * 60)
+        print("[WARN] 以下の行はスキップされました:")
+        for item in result["failed"]:
+            print(f"  行{item['row_number']} (hostname={item['hostname']}):")
+            for err in item["errors"]:
+                print(f"    - {err}")
+
+    if result["deactivated"]:
+        print("-" * 60)
+        print("[INFO] 以下の旧レコードを無効化しました:")
+        for item in result["deactivated"]:
+            print(f"  {item['old_hostname']} -> {item['new_hostname']}")
+
     print("=" * 60)
 
 

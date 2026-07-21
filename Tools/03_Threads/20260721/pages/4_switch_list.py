@@ -53,36 +53,6 @@ def can(config: dict, role: str, permission: str) -> bool:
 # データ取得：スイッチ一覧
 # ---------------------------------------------------------------------------
 
-# @st.cache_data(ttl=60, show_spinner=False)
-# def fetch_switch_dataframe() -> pd.DataFrame:
-#     switches = Switch.fetch_all()
-#     if not switches:
-#         return pd.DataFrame(columns=[
-#             "ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
-#             "ステータス", "収集状況", "最終更新",
-#         ])
-#
-#     df = pd.DataFrame(switches)
-#     df["ステータス"] = df["is_active"].map({True: "🟢 有効", False: "⚪ 無効"})
-#     df["収集状況"] = df["hardware_model"].apply(
-#         lambda m: "⚠️ 未収集" if m == "unknown" else "✅ 収集済み"
-#     )
-#     df["最終更新"] = df["updated_at"].apply(
-#         lambda v: v.strftime("%Y-%m-%d %H:%M") if pd.notna(v) else "-"
-#     )
-#
-#     df = df.rename(columns={
-#         "hostname": "ホスト名",
-#         "ip_address": "IPアドレス",
-#         "hardware_model": "機種",
-#         "location": "設置場所",
-#         "switch_type": "種類",
-#         "role": "役割",
-#     })
-#
-#     return df[["ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
-#                "ステータス", "収集状況", "最終更新"]]
-
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_switch_dataframe() -> pd.DataFrame:
     switches = Switch.fetch_all()
@@ -97,9 +67,6 @@ def fetch_switch_dataframe() -> pd.DataFrame:
 
     df = pd.DataFrame(switches)
     df["ステータス"] = df["is_active"].map({True: "🟢 有効", False: "⚪ 無効"})
-    # df["収集状況"] = df["hardware_model"].apply(
-    #     lambda m: "⚠️ 未収集" if m == "unknown" else "✅ 収集済み"
-    # )
     df["情報取得"] = df["hardware_model"].apply(
         lambda m: "⚠️ 未取得" if m == "unknown" else "✅ 取得済み"
     )
@@ -131,8 +98,6 @@ def fetch_switch_dataframe() -> pd.DataFrame:
         "location": "設置場所", "switch_type": "種類", "role": "役割",
     })
 
-    # return df[["ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
-    #            "ステータス", "収集状況", "Ping", "SSH", "死活確認", "最終更新"]]
     return df[["ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
                "ステータス", "情報取得", "Ping", "SSH", "死活確認", "最終更新"]]
 
@@ -187,27 +152,42 @@ def render_switch_list_page(config: dict, role: str):
     # ---- 集計メトリクス ----
     total = len(df)
     active_count = (df["ステータス"] == "🟢 有効").sum()
-    # uncollected_count = (df["収集状況"] == "⚠️ 未収集").sum()
     uncollected_count = (df["情報取得"] == "⚠️ 未取得").sum()
     ping_fail_count = (df["Ping"] == "🔴 応答なし").sum()
     ssh_fail_count = (df["SSH"] == "🔴 失敗").sum()
 
     m1, m2, m3 = st.columns(3)
+
     m1.metric("総登録数", total)
     m2.metric("有効", int(active_count))
-    # m3.metric("未収集(Inventory未実施)", int(uncollected_count))
     m3.metric("未取得(Inventory未実施)", int(uncollected_count))
+
     m4, m5 = st.columns(2)
     m4.metric("Ping失敗", int(ping_fail_count))
     m5.metric("SSH失敗", int(ssh_fail_count))
 
     # ---- サービスタグ重複チェック ----
-    duplicates = Switch.find_duplicate_service_tags()
-    if duplicates:
-        with st.expander(f"⚠️ サービスタグ重複: {len(duplicates)}件（有効なスイッチ間）", expanded=True):
-            for d in duplicates:
-                st.warning(f"サービスタグ `{d['service_tag']}` が複数の有効なスイッチに登録されています: {', '.join(d['hostnames'])}")
+    # duplicates = Switch.find_duplicate_service_tags()
+    # if duplicates:
+    #     with st.expander(f"⚠️ サービスタグ重複: {len(duplicates)}件（有効なスイッチ間）", expanded=True):
+    #         for d in duplicates:
+    #             st.warning(f"サービスタグ `{d['service_tag']}` が複数の有効なスイッチに登録されています: {', '.join(d['hostnames'])}")
+    #
+    # st.divider()
+    duplicate_ips = Switch.find_duplicate_ip_addresses()
+    duplicate_tags = Switch.find_duplicate_service_tags()
 
+    if duplicate_ips or duplicate_tags:
+        with st.expander(
+                f"⚠️ 重複あり: IPアドレス{len(duplicate_ips)}件 / サービスタグ{len(duplicate_tags)}件（有効なスイッチ間）",
+                expanded=True,
+        ):
+            for d in duplicate_ips:
+                st.warning(
+                    f"IPアドレス `{d['ip_address']}` が複数の有効なスイッチに登録されています: {', '.join(d['hostnames'])}")
+            for d in duplicate_tags:
+                st.warning(
+                    f"サービスタグ `{d['service_tag']}` が複数の有効なスイッチに登録されています: {', '.join(d['hostnames'])}")
 
     st.divider()
 
@@ -224,35 +204,24 @@ def render_switch_list_page(config: dict, role: str):
         with f_col3:
             ip_filter = st.text_input("IPアドレス（部分一致）", placeholder="例: 192.168.64")
 
-        # f_col4, f_col5, f_col6 = st.columns(3)
-        #
-        # with f_col4:
-        #     role_options = sorted(df["役割"].dropna().unique().tolist())
-        #     sel_roles = st.multiselect("役割", options=role_options)
-        #
-        # with f_col5:
-        #     status_options = ["🟢 有効", "⚪ 無効"]
-        #     sel_status = st.multiselect("ステータス", options=status_options)
-        #
-        # with f_col6:
-        #     collect_options = ["✅ 収集済み", "⚠️ 未収集"]
-        #     sel_collect = st.multiselect("収集状況", options=collect_options)
         f_col4, f_col5, f_col6, f_col7, f_col8 = st.columns(5)
+
         with f_col4:
             role_options = sorted(df["役割"].dropna().unique().tolist())
             sel_roles = st.multiselect("役割", options=role_options)
+
         with f_col5:
             status_options = ["🟢 有効", "⚪ 無効"]
-            sel_status = st.multiselect("ステータス", options=status_options)
-        # with f_col6:
-        #     collect_options = ["✅ 収集済み", "⚠️ 未収集"]
-        #     sel_collect = st.multiselect("収集状況", options=collect_options)
+            sel_status = st.multiselect("ステータス", options=status_options, default=["🟢 有効"])
+
         with f_col6:
             collect_options = ["✅ 取得済み", "⚠️ 未取得"]
             sel_collect = st.multiselect("情報取得", options=collect_options)
+
         with f_col7:
             ping_options = ["🟢 応答あり", "🔴 応答なし", "⚪ 未確認"]
             sel_ping = st.multiselect("Ping", options=ping_options)
+
         with f_col8:
             ssh_options = ["🟢 成功", "🔴 失敗", "⚪ 未確認"]
             sel_ssh = st.multiselect("SSH", options=ssh_options)
@@ -269,8 +238,6 @@ def render_switch_list_page(config: dict, role: str):
         filtered = filtered[filtered["役割"].isin(sel_roles)]
     if sel_status:
         filtered = filtered[filtered["ステータス"].isin(sel_status)]
-    # if sel_collect:
-    #     filtered = filtered[filtered["収集状況"].isin(sel_collect)]
     if sel_collect:
         filtered = filtered[filtered["情報取得"].isin(sel_collect)]
     if sel_ping:

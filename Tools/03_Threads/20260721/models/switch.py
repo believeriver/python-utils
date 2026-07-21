@@ -191,3 +191,36 @@ class Switch(BaseDatabase):
             {"service_tag": tag, "hostnames": hosts}
             for tag, hosts in tag_map.items() if len(hosts) > 1
         ]
+
+    @staticmethod
+    def find_duplicate_ip_addresses() -> List[dict]:
+        """is_active=Trueのスイッチ間で、ip_addressが重複しているものを検出する"""
+        session = database.connect_db()
+        rows = session.query(Switch).filter(Switch.is_active == True).all()
+
+        from collections import defaultdict
+        ip_map = defaultdict(list)
+        for row in rows:
+            ip_map[row.ip_address].append(row.hostname)
+
+        session.close()
+
+        return [
+            {"ip_address": ip, "hostnames": hosts}
+            for ip, hosts in ip_map.items() if len(hosts) > 1
+        ]
+
+    @staticmethod
+    def deactivate(hostname: str) -> bool:
+        """指定ホストを無効化する。存在しなければFalseを返す"""
+        with db_write_lock:
+            session = database.connect_db()
+            row = session.query(Switch).filter(Switch.hostname == hostname).first()
+            if row is None:
+                session.close()
+                return False
+            row.is_active = False
+            session.commit()
+            session.close()
+            logger.info(f"switch deactivated: {hostname}")
+            return True
