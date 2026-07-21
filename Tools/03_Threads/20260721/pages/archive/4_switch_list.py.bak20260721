@@ -2,6 +2,7 @@
 Streamlit ページ: スイッチ登録状況一覧
 - YAML ベースのユーザー認証（既存ページと共通）
 - DBに登録済みのスイッチ一覧を検索・ステータス確認
+- 選択したスイッチのMACアドレステーブルをARP情報(IPアドレス)と突き合わせて表示
 """
 
 from __future__ import annotations
@@ -58,7 +59,7 @@ def fetch_switch_dataframe() -> pd.DataFrame:
     if not switches:
         return pd.DataFrame(columns=[
             "ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
-            "ステータス", "情報取得", "Ping", "SSH", "死活確認", "最終更新",
+            "ステータス", "収集状況", "Ping", "SSH", "死活確認", "最終更新",
         ])
 
     liveness_list = Liveness.fetch_all()
@@ -102,6 +103,34 @@ def fetch_switch_dataframe() -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# データ取得：MACアドレステーブル（ARPでIP紐付け）
+# ---------------------------------------------------------------------------
+
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_mac_table_with_ip(switch_id: int) -> pd.DataFrame:
+    """指定スイッチのMACアドレステーブルに、ARP情報からIPアドレスを紐付けて返す"""
+    entries = MacAddressEntry.fetch_by_switch(switch_id)
+    if not entries:
+        return pd.DataFrame(columns=["VLAN", "MACアドレス", "ポート", "IPアドレス", "最終確認"])
+
+    mac_list = [e["mac_address"] for e in entries]
+    mac_to_ip = ArpEntry.fetch_mac_to_ip_map(mac_list)
+
+    rows = []
+    for e in entries:
+        ip_list = mac_to_ip.get(e["mac_address"], [])
+        rows.append({
+            "VLAN": e["vlan"],
+            "MACアドレス": e["mac_address"],
+            "ポート": e["port"],
+            "IPアドレス": ", ".join(ip_list) if ip_list else "不明",
+            "最終確認": e["last_seen"].strftime("%Y-%m-%d %H:%M") if e["last_seen"] else "-",
+        })
+
+    return pd.DataFrame(rows).sort_values(["VLAN", "ポート"])
+
+
+# ---------------------------------------------------------------------------
 # ページ本体 UI
 # ---------------------------------------------------------------------------
 
@@ -128,6 +157,7 @@ def render_switch_list_page(config: dict, role: str):
     ssh_fail_count = (df["SSH"] == "🔴 失敗").sum()
 
     m1, m2, m3 = st.columns(3)
+
     m1.metric("総登録数", total)
     m2.metric("有効", int(active_count))
     m3.metric("未取得(Inventory未実施)", int(uncollected_count))
@@ -136,51 +166,63 @@ def render_switch_list_page(config: dict, role: str):
     m4.metric("Ping失敗", int(ping_fail_count))
     m5.metric("SSH失敗", int(ssh_fail_count))
 
-    # ---- 重複チェック(IPアドレス・サービスタグ) ----
+    # ---- サービスタグ重複チェック ----
+    # duplicates = Switch.find_duplicate_service_tags()
+    # if duplicates:
+    #     with st.expander(f"⚠️ サービスタグ重複: {len(duplicates)}件（有効なスイッチ間）", expanded=True):
+    #         for d in duplicates:
+    #             st.warning(f"サービスタグ `{d['service_tag']}` が複数の有効なスイッチに登録されています: {', '.join(d['hostnames'])}")
+    #
+    # st.divider()
     duplicate_ips = Switch.find_duplicate_ip_addresses()
     duplicate_tags = Switch.find_duplicate_service_tags()
 
     if duplicate_ips or duplicate_tags:
         with st.expander(
-            f"⚠️ 重複あり: IPアドレス{len(duplicate_ips)}件 / サービスタグ{len(duplicate_tags)}件（有効なスイッチ間）",
-            expanded=True,
+                f"⚠️ 重複あり: IPアドレス{len(duplicate_ips)}件 / サービスタグ{len(duplicate_tags)}件（有効なスイッチ間）",
+                expanded=True,
         ):
             for d in duplicate_ips:
-                st.warning(f"IPアドレス `{d['ip_address']}` が複数の有効なスイッチに登録されています: {', '.join(d['hostnames'])}")
+                st.warning(
+                    f"IPアドレス `{d['ip_address']}` が複数の有効なスイッチに登録されています: {', '.join(d['hostnames'])}")
             for d in duplicate_tags:
-                st.warning(f"サービスタグ `{d['service_tag']}` が複数の有効なスイッチに登録されています: {', '.join(d['hostnames'])}")
+                st.warning(
+                    f"サービスタグ `{d['service_tag']}` が複数の有効なスイッチに登録されています: {', '.join(d['hostnames'])}")
 
     st.divider()
 
     # ---- 検索・フィルタUI ----
     with st.expander("🔎 検索・フィルタ", expanded=True):
         f_col1, f_col2, f_col3 = st.columns(3)
-        with f_col1:
-            hostname_filter = st.text_input("ホスト名（部分一致）", placeholder="例: KSY")
-        with f_col2:
-            location_filter = st.text_input("設置場所（部分一致）", placeholder="例: 本館")
-        with f_col3:
-            ip_filter = st.text_input("IPアドレス（部分一致）", placeholder="例: 172.24.64")
 
-        f_col4, f_col5, f_col6 = st.columns(3)
+        with f_col1:
+            hostname_filter = st.text_input("ホスト名（部分一致）", placeholder="例: rx8")
+
+        with f_col2:
+            location_filter = st.text_input("設置場所（部分一致）", placeholder="例: UTM")
+
+        with f_col3:
+            ip_filter = st.text_input("IPアドレス（部分一致）", placeholder="例: 192.168.64")
+
+        f_col4, f_col5, f_col6, f_col7, f_col8 = st.columns(5)
+
         with f_col4:
             role_options = sorted(df["役割"].dropna().unique().tolist())
             sel_roles = st.multiselect("役割", options=role_options)
+
         with f_col5:
-            model_options = sorted(df["機種"].dropna().unique().tolist())
-            sel_models = st.multiselect("機種", options=model_options)
-        with f_col6:
             status_options = ["🟢 有効", "⚪ 無効"]
             sel_status = st.multiselect("ステータス", options=status_options, default=["🟢 有効"])
 
-        f_col7, f_col8, f_col9 = st.columns(3)
-        with f_col7:
+        with f_col6:
             collect_options = ["✅ 取得済み", "⚠️ 未取得"]
             sel_collect = st.multiselect("情報取得", options=collect_options)
-        with f_col8:
+
+        with f_col7:
             ping_options = ["🟢 応答あり", "🔴 応答なし", "⚪ 未確認"]
             sel_ping = st.multiselect("Ping", options=ping_options)
-        with f_col9:
+
+        with f_col8:
             ssh_options = ["🟢 成功", "🔴 失敗", "⚪ 未確認"]
             sel_ssh = st.multiselect("SSH", options=ssh_options)
 
@@ -194,8 +236,6 @@ def render_switch_list_page(config: dict, role: str):
         filtered = filtered[filtered["IPアドレス"].str.contains(ip_filter, na=False)]
     if sel_roles:
         filtered = filtered[filtered["役割"].isin(sel_roles)]
-    if sel_models:
-        filtered = filtered[filtered["機種"].isin(sel_models)]
     if sel_status:
         filtered = filtered[filtered["ステータス"].isin(sel_status)]
     if sel_collect:
