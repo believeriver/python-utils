@@ -72,7 +72,9 @@ class Config(object):
         # {"hostname": "core-sw02", "host": "192.168.0.2", "community": "public"},
     ]
 
-
+    # config.py に追加
+    SHARED_DB_PATH = Path(r"\\fileserver\share\network_monitor\network_monitor.db")
+    SHARED_DB_PATH.parent.mkdir(exist_ok=True, parents=True)
 
 
 

@@ -44,6 +44,21 @@ VALID_SWITCH_TYPES = {"L2", "L3"}
 VALID_ROLES = {"floor", "edge", "core"}
 
 
+import shutil
+from config import Config
+
+# ---------------------------------------------------------------------------
+# DB転送処理
+# ---------------------------------------------------------------------------
+
+def backup_db_to_share() -> None:
+    """収集完了後、DBファイルを共有ファイルサーバーにコピーする"""
+    try:
+        shutil.copy2(Config.DB_PATH, Config.SHARED_DB_PATH)
+        logger.info(f"DBを共有先にコピーしました: {Config.SHARED_DB_PATH}")
+    except Exception as e:
+        logger.error(f"DBの共有先コピーに失敗しました: {e}")
+
 # ---------------------------------------------------------------------------
 # ① CSV仮登録
 # ---------------------------------------------------------------------------
@@ -343,6 +358,10 @@ def main(argv):
     else:
         print("[ERROR] 引数は 1〜7 のいずれかを指定してください")
         exit(1)
+
+    # DBを更新するステップ(1〜7すべて)の最後に共有先へコピー
+    if step in ("1", "2", "3", "4", "5", "6", "7"):
+        backup_db_to_share()
 
     elapsed = time.time() - start
     print(f"[INFO] Elapsed: {elapsed:.2f} seconds")
