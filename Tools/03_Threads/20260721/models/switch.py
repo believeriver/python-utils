@@ -18,7 +18,6 @@ class Switch(BaseDatabase):
     ip_address = Column(String(45), nullable=False)
     hardware_model = Column(String(32), nullable=False)
     base_mac_address = Column(String(17), nullable=True)
-    # service_tag = Column(String(32), unique=True, nullable=True)
     service_tag = Column(String(32), nullable=True)  # unique=True を削除
     firmware_version = Column(String(32), nullable=True)
     location = Column(String(128), nullable=True)
