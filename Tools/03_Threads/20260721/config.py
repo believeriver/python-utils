@@ -6,6 +6,10 @@ BASE_DIR = Path(__file__).resolve().parent          # config.pyがあるフォ�
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)                        # 初回起動時にdataフォルダがなければ作成
 
+# # 共有ファイルサーバー向け
+# DATA_DIR = Path(r"\\fileserver\share\network_monitor\data")
+# DATA_DIR.mkdir(exist_ok=True, parents=True)
+
 DB_PATH = DATA_DIR / "network_monitor.db"
 
 
