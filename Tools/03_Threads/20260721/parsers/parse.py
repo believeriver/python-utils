@@ -2,6 +2,10 @@ import re
 from typing import List, Dict
 
 
+# ---------------------------------------------------------------------------
+# IOS系(C1000/C2960L/C9000系)パーサー
+# ---------------------------------------------------------------------------
+
 def parse_mac_address_table(lines: List[str]) -> List[Dict]:
     """
     show mac address-table のCLI出力行リストを構造化データに変換する。
@@ -33,7 +37,6 @@ def parse_cdp_neighbors_detail(lines: List[str]) -> List[Dict]:
     1ネイバーのブロックを抽出して辞書化する。
     """
     result = []
-    current = {}
     text = "\n".join(lines)
 
     # ネイバーブロックの区切りは "-------------------------"
@@ -84,27 +87,9 @@ def parse_arp_table(lines: List[str]) -> List[Dict]:
     return result
 
 
-def _extract(text: str, pattern: str) -> str:
-    """正規表現で1件だけ抽出するヘルパー"""
-    m = re.search(pattern, text)
-    return m.group(1).strip() if m else None
-
-
-def _normalize_mac(mac: str) -> str:
-    """Cisco形式(aabb.ccdd.ee01) → コロン区切り(aa:bb:cc:dd:ee:01)に正規化"""
-    if not mac:
-        return ""
-    hex_only = re.sub(r"[^0-9a-fA-F]", "", mac).lower()
-    if len(hex_only) != 12:
-        return mac  # 変換できない場合はそのまま返す
-    return ":".join(hex_only[i:i+2] for i in range(0, 12, 2))
-
-
-# parsers/parse.py に追加
-
 def parse_show_version(lines: List[str]) -> Dict:
     """
-    show version から機種・ファームウェア・base MACを抽出
+    show version から機種・ファームウェア・base MACを抽出(IOS系)
     """
     text = "\n".join(lines)
     return {
@@ -118,7 +103,7 @@ def parse_show_version(lines: List[str]) -> Dict:
 
 def parse_show_inventory(lines: List[str]) -> Dict:
     """
-    show inventory からシャーシのサービスタグ(SN)を抽出
+    show inventory からシャーシのサービスタグ(SN)を抽出(IOS系)
     NAME: "1", DESCR: "..."
     PID: WS-C2960L-8TS-LL, VID: V01, SN: FOCxxxxxxx
     """
@@ -130,10 +115,68 @@ def parse_show_inventory(lines: List[str]) -> Dict:
     }
 
 
-#------------------
-# C1300系専用パーサー
+# ---------------------------------------------------------------------------
+# 共通ヘルパー
+# ---------------------------------------------------------------------------
+
+def _extract(text: str, pattern: str) -> str:
+    """正規表現で1件だけ抽出するヘルパー"""
+    m = re.search(pattern, text)
+    return m.group(1).strip() if m else None
+
+
+def _normalize_mac(mac: str) -> str:
+    """様々な表記(ドット区切り/コロン区切り) → コロン区切り(aa:bb:cc:dd:ee:01)に正規化"""
+    if not mac:
+        return ""
+    hex_only = re.sub(r"[^0-9a-fA-F]", "", mac).lower()
+    if len(hex_only) != 12:
+        return mac  # 変換できない場合はそのまま返す
+    return ":".join(hex_only[i:i+2] for i in range(0, 12, 2))
+
+
+# ---------------------------------------------------------------------------
+# C1300系(Cisco Small Business系CLI)専用パーサー
 # 2026.07.21追加
-# -----------------
+# ---------------------------------------------------------------------------
+
+def parse_show_version_smb(lines: List[str]) -> Dict:
+    """
+    C1300(Cisco Small Business系)の show version 出力を解析する。
+
+    実際の出力例:
+    SW version    4.1.3.47 (date  15-Mar-2026 time  09:12:33)
+    ...
+    System Description:                   Cisco Catalyst C1300-8T-E
+    System MAC Address:                   d4:e8:80:11:22:01
+    System Serial Number:                 CAT2440X3EFG
+    """
+    text = "\n".join(lines)
+    return {
+        "hardware_model": _extract(text, r"Cisco Catalyst\s+(\S+)"),
+        "firmware_version": _extract(text, r"SW version\s+(\S+)"),
+        "base_mac_address": _normalize_mac(
+            _extract(text, r"System MAC Address:\s*(\S+)")
+        ),
+    }
+
+
+def parse_show_inventory_smb(lines: List[str]) -> Dict:
+    """
+    C1300の show inventory 出力を解析する。
+
+    実際の出力例:
+    Unit  Description                            SN
+    ----  -------------------------------------  -------------
+    1     Cisco Catalyst C1300-8T-E               CAT2440X3EFG
+    """
+    text = "\n".join(lines)
+    m = re.search(r"^\s*1\s+.+?\s{2,}(\S+)\s*$", text, re.MULTILINE)
+    return {
+        "service_tag": m.group(1) if m else None,
+    }
+
+
 def parse_mac_address_table_c1300(lines: List[str]) -> List[Dict]:
     """
     C1300の show mac address-table 出力を構造化データに変換する。

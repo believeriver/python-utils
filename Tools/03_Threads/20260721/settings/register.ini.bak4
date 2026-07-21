@@ -1,0 +1,3 @@
+hostname,ipaddr,username,password,location,switch_type,role,replaces
+sw-C1000-Core-01,192.168.64.2,root,rootroot,UTM, L3, core, rx8headnode
+sw-C1300-Edge-01,192.168.64.4,root,rootroot,UTM, L2, edge,rx8node01
