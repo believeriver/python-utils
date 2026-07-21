@@ -1,0 +1,13 @@
+terminal length 0
+[root@rx8node01 ~]# terminal length 0
+[root@rx8node01 ~]# show mac address-table
+Aging time is 300 sec
+
+VLAN     MAC Address           Port         Type
+-------- --------------------- ------------ ----------
+10       d4:e8:80:11:22:01     CPU          self
+10       d4:e8:80:99:aa:bb     gi3          dynamic
+10       00:11:22:33:44:77     gi8          dynamic
+20       aa:bb:cc:dd:55:11     gi12         dynamic
+
+[root@rx8node01 ~]# 

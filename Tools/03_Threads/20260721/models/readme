@@ -53,3 +53,9 @@ registration.py
   rx8headnode -> sw-C1000-Core-01
 ============================================================
 [INFO] Elapsed: 0.01 seconds
+
+
+#C1300系への対応
+parsers/parse.py
+device_profiles.py
+registration.py

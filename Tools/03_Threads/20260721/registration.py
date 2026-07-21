@@ -26,6 +26,8 @@ from models.switch import Switch
 from models.cdp_neighbor import CdpNeighbor
 from models.mac_address import MacAddressEntry
 from models.arp_entry import ArpEntry
+from device_profiles import get_mac_table_parser, get_cdp_parser, get_arp_parser
+
 
 logger = setup_logger("registration", Config.LEVEL)
 
@@ -252,19 +254,44 @@ def collect_cdp_neighbors(targets: list, workers: int = Config.MAX_WORKERS) -> N
                 logger.warning(f"Switch not found in DB: {hostname}")
                 continue
 
-            neighbors = parse_cdp_neighbors_detail(lines)
+            # neighbors = parse_cdp_neighbors_detail(lines)
+            parser_fn = get_cdp_parser(switch["hardware_model"])
+            neighbors = parser_fn(lines)
             CdpNeighbor.sync_from_collection(switch["id"], neighbors)
             logger.info(f"cdp saved: {hostname} ({len(neighbors)} neighbors)")
+
+
+# def collect_mac_address_table(targets: list, workers: int = Config.MAX_WORKERS) -> None:
+#     q = set_queue(_targets=targets)
+#     results = main_threads(
+#         _q=q,
+#         workers=workers,
+#         executor_cls=FetchMacTableExecutor,
+#         reporter_cls=ReporterSample,
+#         level=Config.LEVEL,
+#     )
+#
+#     for res in results:
+#         for hostname, lines in res.items():
+#             if not lines:
+#                 logger.warning(f"MACテーブル収集結果なし: {hostname}")
+#                 continue
+#
+#             switch = Switch.fetch_by_hostname(hostname)
+#             if switch is None:
+#                 logger.warning(f"Switch not found in DB: {hostname}")
+#                 continue
+#
+#             entries = parse_mac_address_table(lines)
+#             MacAddressEntry.sync_from_collection(switch["id"], entries)
+#             logger.info(f"mac saved: {hostname} ({len(entries)} entries)")
 
 
 def collect_mac_address_table(targets: list, workers: int = Config.MAX_WORKERS) -> None:
     q = set_queue(_targets=targets)
     results = main_threads(
-        _q=q,
-        workers=workers,
-        executor_cls=FetchMacTableExecutor,
-        reporter_cls=ReporterSample,
-        level=Config.LEVEL,
+        _q=q, workers=workers,
+        executor_cls=FetchMacTableExecutor, reporter_cls=ReporterSample, level=Config.LEVEL,
     )
 
     for res in results:
@@ -278,7 +305,8 @@ def collect_mac_address_table(targets: list, workers: int = Config.MAX_WORKERS) 
                 logger.warning(f"Switch not found in DB: {hostname}")
                 continue
 
-            entries = parse_mac_address_table(lines)
+            parser_fn = get_mac_table_parser(switch["hardware_model"])  # ← 機種で切り替え
+            entries = parser_fn(lines)
             MacAddressEntry.sync_from_collection(switch["id"], entries)
             logger.info(f"mac saved: {hostname} ({len(entries)} entries)")
 
@@ -304,7 +332,9 @@ def collect_arp_table(targets: list, workers: int = Config.MAX_WORKERS) -> None:
                 logger.warning(f"Switch not found in DB: {hostname}")
                 continue
 
-            entries = parse_arp_table(lines)
+            # entries = parse_arp_table(lines)
+            parser_fn = get_arp_parser(switch["hardware_model"])
+            entries = parser_fn(lines)
             ArpEntry.sync_from_collection(switch["id"], entries)
             logger.info(f"arp saved: {hostname} ({len(entries)} entries)")
 

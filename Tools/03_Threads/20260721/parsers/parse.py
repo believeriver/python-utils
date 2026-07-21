@@ -128,3 +128,87 @@ def parse_show_inventory(lines: List[str]) -> Dict:
     return {
         "service_tag": m.group(1) if m else None,
     }
+
+
+#------------------
+# C1300系専用パーサー
+# 2026.07.21追加
+# -----------------
+def parse_mac_address_table_c1300(lines: List[str]) -> List[Dict]:
+    """
+    C1300の show mac address-table 出力を構造化データに変換する。
+    列順序: VLAN, MAC Address, Port, Type (IOSと順序が異なる)
+    MACアドレスは既にコロン区切り(00:3f:bd:45:5a:b1)なので、正規化はほぼ不要。
+    """
+    result = []
+    pattern = re.compile(
+        r"^\s*(\d+)\s+([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})\s+(\S+)\s+(\S+)"
+    )
+    for line in lines:
+        m = pattern.match(line)
+        if not m:
+            continue
+        vlan, mac, port, mac_type = m.groups()
+        if mac_type.lower() not in ("dynamic", "static"):
+            continue
+        result.append({
+            "vlan": int(vlan),
+            "mac_address": mac.lower(),  # 既にコロン区切りなので小文字化のみ
+            "port": port,
+        })
+    return result
+
+
+def parse_arp_table_c1300(lines: List[str]) -> List[Dict]:
+    """
+    C1300の show arp 出力を構造化データに変換する(show ip arpとは別コマンド)。
+    正確な列フォーマットは実機での確認が必要。ここでは公開ドキュメントの
+    フィールド説明(IP/MAC/VLAN/Interface)に基づく暫定パーサー。
+    """
+    result = []
+    pattern = re.compile(
+        r"(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})\s+.*?[Vv]lan\s*(\d+)?"
+    )
+    for line in lines:
+        m = pattern.search(line)
+        if not m:
+            continue
+        ip, mac, vlan = m.groups()
+        if vlan is None:
+            continue  # VLANが空の場合は現状スキップ(ポート直付けのケース、要検証)
+        result.append({
+            "ip_address": ip,
+            "mac_address": mac.lower(),
+            "vlan": int(vlan),
+        })
+    return result
+
+
+def parse_cdp_neighbors_detail_c1300(lines: List[str]) -> List[Dict]:
+    """
+    C1300の show cdp neighbors detail 出力を構造化データに変換する。
+    "Device ID:" ではなく "Device-ID:"(ハイフン)である点がIOSと異なる。
+    """
+    result = []
+    text = "\n".join(lines)
+    blocks = re.split(r"-{10,}", text)
+
+    for block in blocks:
+        neighbor_raw = _extract(block, r"Device-ID:\s*(\S+)")  # ハイフン表記
+        local_if = _extract(block, r"Interface:\s*(\S+?),")
+        neighbor_if = _extract(block, r"Port ID \(outgoing port\):\s*(\S+)")
+        platform = _extract(block, r"Platform:\s*(.+?),")
+        chassis_mac = _extract(block, r"(?i)chassis[\s-]?id[:\s]+([0-9a-fA-F:.\-]+)")
+
+        if not neighbor_raw or not local_if:
+            continue
+
+        result.append({
+            "local_interface": local_if,
+            "neighbor_hostname_raw": neighbor_raw,
+            "neighbor_interface": neighbor_if,
+            "neighbor_platform": platform,
+            "neighbor_chassis_mac": _normalize_mac(chassis_mac) if chassis_mac else None,
+        })
+
+    return result
