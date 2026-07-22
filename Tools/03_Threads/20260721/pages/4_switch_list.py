@@ -49,7 +49,7 @@ def can(config: dict, role: str, permission: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# データ取得：スイッチ一覧
+# データ取得：スイッチ一覧　2026.07.23
 # ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -59,6 +59,7 @@ def fetch_switch_dataframe() -> pd.DataFrame:
         return pd.DataFrame(columns=[
             "ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
             "ステータス", "情報取得", "Ping", "SSH", "死活確認", "最終更新",
+            "サービスタグ", "MACアドレス", "ファームウェア", "データVLAN", "NTPサーバ",
         ])
 
     liveness_list = Liveness.fetch_all()
@@ -92,13 +93,31 @@ def fetch_switch_dataframe() -> pd.DataFrame:
     df["SSH"] = df["id"].apply(_ssh_status)
     df["死活確認"] = df["id"].apply(_checked_at)
 
+    # 追加項目：空値(None)は "-" で統一表示する
+    def _fill_dash(value):
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return "-"
+        return value
+
+    df["service_tag"] = df["service_tag"].apply(_fill_dash)
+    df["base_mac_address"] = df["base_mac_address"].apply(_fill_dash)
+    df["firmware_version"] = df["firmware_version"].apply(_fill_dash)
+    df["data_vlan"] = df["data_vlan"].apply(
+        lambda v: "-" if v is None or (isinstance(v, float) and pd.isna(v)) else str(int(v))
+    )
+    df["ntp_servers"] = df["ntp_servers"].apply(_fill_dash)
+
     df = df.rename(columns={
         "hostname": "ホスト名", "ip_address": "IPアドレス", "hardware_model": "機種",
         "location": "設置場所", "switch_type": "種類", "role": "役割",
+        "service_tag": "サービスタグ", "base_mac_address": "MACアドレス",
+        "firmware_version": "ファームウェア", "data_vlan": "データVLAN",
+        "ntp_servers": "NTPサーバ",
     })
 
     return df[["ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
-               "ステータス", "情報取得", "Ping", "SSH", "死活確認", "最終更新"]]
+               "ステータス", "情報取得", "Ping", "SSH", "死活確認", "最終更新",
+               "サービスタグ", "MACアドレス", "ファームウェア", "データVLAN", "NTPサーバ"]]
 
 
 # ---------------------------------------------------------------------------

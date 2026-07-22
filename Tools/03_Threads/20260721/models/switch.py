@@ -43,6 +43,8 @@ class Switch(BaseDatabase):
             "location": row.location,
             "switch_type": row.switch_type,
             "role": row.role,
+            "data_vlan": row.data_vlan,
+            "ntp_servers": row.ntp_servers,
             "is_active": row.is_active,
             "updated_at": row.updated_at,
         } for row in rows]
