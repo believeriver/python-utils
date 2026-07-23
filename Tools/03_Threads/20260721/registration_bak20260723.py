@@ -175,20 +175,6 @@ def print_registration_report(result: dict) -> None:
     print("=" * 60)
 
 
-def _print_parse_failure_summary(step_name: str, failures: list) -> None:
-    """収集結果のパース失敗・欠損を一覧でまとめて表示する"""
-    if not failures:
-        print(f"[INFO] {step_name}: 全件パース成功")
-        return
-
-    print("=" * 60)
-    print(f"[WARN] {step_name}: {len(failures)}件で問題を検出")
-    print("-" * 60)
-    for item in failures:
-        print(f"  {item['hostname']}: {item['reason']}")
-    print("=" * 60)
-
-
 # ---------------------------------------------------------------------------
 # ② Inventory収集(show version / show inventory)
 # ---------------------------------------------------------------------------
@@ -203,19 +189,15 @@ def collect_hardware_info(targets: list, workers: int = Config.MAX_WORKERS) -> N
         level=Config.LEVEL,
     )
 
-    parse_failures = []
-
     for res in results:
         for hostname, lines in res.items():
             if not lines:
                 logger.warning(f"収集結果なし: {hostname}")
-                parse_failures.append({"hostname": hostname, "reason": "収集結果が空"})
                 continue
 
             switch = Switch.fetch_by_hostname(hostname)
             if switch is None:
                 logger.warning(f"Switch not found in DB: {hostname}")
-                parse_failures.append({"hostname": hostname, "reason": "DB未登録"})
                 continue
 
             version_parser = get_parser(
@@ -228,19 +210,8 @@ def collect_hardware_info(targets: list, workers: int = Config.MAX_WORKERS) -> N
             info = {}
             info.update(version_parser(lines))
             info.update(inventory_parser(lines))
-
-            missing_fields = [k for k, v in info.items() if not v]
-            if missing_fields:
-                parse_failures.append({
-                    "hostname": hostname,
-                    "reason": f"未取得項目: {', '.join(missing_fields)}",
-                })
-                logger.warning(f"[PARSE MISS] {hostname}: {missing_fields}")
-
             Switch.update_hardware_info(hostname, **info)
             logger.info(f"hardware info updated: {hostname} -> {info}")
-
-    _print_parse_failure_summary("Inventory収集", parse_failures)
 
 
 # ---------------------------------------------------------------------------
@@ -257,34 +228,23 @@ def collect_cdp_neighbors(targets: list, workers: int = Config.MAX_WORKERS) -> N
         level=Config.LEVEL,
     )
 
-    parse_failures = []
-
     for res in results:
         for hostname, lines in res.items():
             if not lines:
                 logger.warning(f"CDP収集結果なし: {hostname}")
-                parse_failures.append({"hostname": hostname, "reason": "収集結果が空"})
                 continue
 
             switch = Switch.fetch_by_hostname(hostname)
             if switch is None:
                 logger.warning(f"Switch not found in DB: {hostname}")
-                parse_failures.append({"hostname": hostname, "reason": "DB未登録"})
                 continue
 
             parser_fn = get_parser(
                 switch["hardware_model"], "CDP_PARSER", parse_module.parse_cdp_neighbors_detail
             )
             neighbors = parser_fn(lines)
-
-            if not neighbors:
-                parse_failures.append({"hostname": hostname, "reason": "パース結果が0件(出力形式が合っていない可能性)"})
-                logger.warning(f"[PARSE MISS] {hostname}: CDPネイバー0件")
-
             CdpNeighbor.sync_from_collection(switch["id"], neighbors)
             logger.info(f"cdp saved: {hostname} ({len(neighbors)} neighbors)")
-
-    _print_parse_failure_summary("CDPネイバー収集", parse_failures)
 
 
 # ---------------------------------------------------------------------------
@@ -301,34 +261,23 @@ def collect_mac_address_table(targets: list, workers: int = Config.MAX_WORKERS) 
         level=Config.LEVEL,
     )
 
-    parse_failures = []
-
     for res in results:
         for hostname, lines in res.items():
             if not lines:
                 logger.warning(f"MACテーブル収集結果なし: {hostname}")
-                parse_failures.append({"hostname": hostname, "reason": "収集結果が空"})
                 continue
 
             switch = Switch.fetch_by_hostname(hostname)
             if switch is None:
                 logger.warning(f"Switch not found in DB: {hostname}")
-                parse_failures.append({"hostname": hostname, "reason": "DB未登録"})
                 continue
 
             parser_fn = get_parser(
                 switch["hardware_model"], "MAC_TABLE_PARSER", parse_module.parse_mac_address_table
             )
             entries = parser_fn(lines)
-
-            if not entries:
-                parse_failures.append({"hostname": hostname, "reason": "パース結果が0件(出力形式が合っていない可能性)"})
-                logger.warning(f"[PARSE MISS] {hostname}: MACエントリ0件")
-
             MacAddressEntry.sync_from_collection(switch["id"], entries)
             logger.info(f"mac saved: {hostname} ({len(entries)} entries)")
-
-    _print_parse_failure_summary("MACアドレステーブル収集", parse_failures)
 
 
 # ---------------------------------------------------------------------------
@@ -345,34 +294,23 @@ def collect_arp_table(targets: list, workers: int = Config.MAX_WORKERS) -> None:
         level=Config.LEVEL,
     )
 
-    parse_failures = []
-
     for res in results:
         for hostname, lines in res.items():
             if not lines:
                 logger.warning(f"ARP収集結果なし: {hostname}")
-                parse_failures.append({"hostname": hostname, "reason": "収集結果が空"})
                 continue
 
             switch = Switch.fetch_by_hostname(hostname)
             if switch is None:
                 logger.warning(f"Switch not found in DB: {hostname}")
-                parse_failures.append({"hostname": hostname, "reason": "DB未登録"})
                 continue
 
             parser_fn = get_parser(
                 switch["hardware_model"], "ARP_PARSER", parse_module.parse_arp_table
             )
             entries = parser_fn(lines)
-
-            if not entries:
-                parse_failures.append({"hostname": hostname, "reason": "パース結果が0件(ARP非対応または出力形式の相違)"})
-                logger.warning(f"[PARSE MISS] {hostname}: ARPエントリ0件")
-
             ArpEntry.sync_from_collection(switch["id"], entries)
             logger.info(f"arp saved: {hostname} ({len(entries)} entries)")
-
-    _print_parse_failure_summary("ARP収集", parse_failures)
 
 
 # ---------------------------------------------------------------------------
