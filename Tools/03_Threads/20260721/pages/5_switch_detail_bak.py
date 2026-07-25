@@ -1,8 +1,8 @@
 """
-Streamlit ページ: スイッチ詳細（死活監視・ポート・MACアドレステーブル）
+Streamlit ページ: スイッチ詳細（ポート・MACアドレステーブル）
 - YAML ベースのユーザー認証（既存ページと共通）
-- ホスト名/IPアドレス/設置場所で検索 → 1台選択 →
-  死活監視状況・履歴、MACアドレステーブル(ARPでIP紐付け)を表示
+- ホスト名/IPアドレス/設置場所で検索 → 1台選択 → MACアドレステーブルをARPで
+  IP紐付けして表示
 """
 
 from __future__ import annotations
@@ -19,7 +19,6 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from models.switch import Switch
 from models.mac_address import MacAddressEntry
 from models.arp_entry import ArpEntry
-from models.liveness import Liveness, LivenessHistory
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
 
@@ -106,7 +105,7 @@ def fetch_mac_table_with_ip(switch_id: int) -> pd.DataFrame:
 
 def render_switch_detail_page(config: dict, role: str):
     st.title("🔎 スイッチ詳細")
-    st.caption("スイッチを検索して、死活監視・ポート状況・MACアドレステーブルを確認します")
+    st.caption("スイッチを検索して、ポート状況・MACアドレステーブルを確認します")
 
     df = fetch_switch_dataframe()
 
@@ -152,47 +151,15 @@ def render_switch_detail_page(config: dict, role: str):
     b3.metric("役割", switch_row["役割"])
     b4.metric("ステータス", switch_row["ステータス"])
 
-    switch_full = Switch.fetch_by_hostname(selected_hostname)
-    if switch_full is None:
-        st.warning("スイッチ情報の取得に失敗しました。")
-        return
-
-    st.divider()
-
-    # ---- 死活監視状況・履歴 ----
-    st.subheader("📡 死活監視状況")
-
-    liveness = Liveness.fetch_by_switch_id(switch_full["id"])
-    if liveness is None:
-        st.info("死活監視データがまだありません。")
-    else:
-        lc1, lc2, lc3 = st.columns(3)
-        lc1.metric("Ping", "🟢 応答あり" if liveness["ping_ok"] else "🔴 応答なし")
-        lc2.metric("SSH", "🟢 成功" if liveness["ssh_ok"] else "🔴 失敗")
-        lc3.metric("この状態が継続中", liveness["ping_since"].strftime("%Y-%m-%d %H:%M"))
-
-        st.caption(f"最終確認: {liveness['checked_at'].strftime('%Y-%m-%d %H:%M')}")
-        if liveness["ssh_error"]:
-            st.caption(f"SSHエラー詳細: {liveness['ssh_error']}")
-
-        history = LivenessHistory.fetch_by_switch_id(switch_full["id"])
-        if history:
-            with st.expander(f"📜 Ping状態の変化履歴（{len(history)}件）", expanded=False):
-                hist_df = pd.DataFrame(history)
-                hist_df["状態"] = hist_df["ping_ok"].map({True: "🟢 応答あり", False: "🔴 応答なし"})
-                hist_df["開始"] = hist_df["valid_from"].apply(lambda v: v.strftime("%Y-%m-%d %H:%M"))
-                hist_df["終了"] = hist_df["valid_to"].apply(lambda v: v.strftime("%Y-%m-%d %H:%M"))
-                st.dataframe(
-                    hist_df[["状態", "開始", "終了"]].sort_values("開始", ascending=False),
-                    use_container_width=True, hide_index=True,
-                )
-        else:
-            st.caption("状態変化の履歴はまだありません(登録以降、状態は変わっていません)。")
-
     st.divider()
 
     # ---- MACアドレステーブル ----
     st.subheader("🔌 MACアドレステーブル")
+
+    switch_full = Switch.fetch_by_hostname(selected_hostname)
+    if switch_full is None:
+        st.warning("スイッチ情報の取得に失敗しました。")
+        return
 
     with st.spinner("MACアドレステーブルを取得中..."):
         mac_df = fetch_mac_table_with_ip(switch_full["id"])
