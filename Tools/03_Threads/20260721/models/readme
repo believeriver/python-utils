@@ -66,3 +66,6 @@ config.py
 2026/07/23
 models/switch.py
 pages/4_switch_list.py
+
+2026.07.25
+device_profiles.py
