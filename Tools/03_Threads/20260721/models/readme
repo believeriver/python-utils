@@ -69,3 +69,4 @@ pages/4_switch_list.py
 
 2026.07.25
 device_profiles.py
+pages/5_switch_detail.py
