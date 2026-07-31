@@ -162,7 +162,7 @@ def render_switch_list_page(config: dict, role: str):
     if duplicate_ips or duplicate_tags:
         with st.expander(
             f"⚠️ 重複あり: IPアドレス{len(duplicate_ips)}件 / サービスタグ{len(duplicate_tags)}件（有効なスイッチ間）",
-            expanded=True,
+            expanded=False,
         ):
             for d in duplicate_ips:
                 st.warning(f"IPアドレス `{d['ip_address']}` が複数の有効なスイッチに登録されています: {', '.join(d['hostnames'])}")
