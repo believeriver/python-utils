@@ -43,19 +43,10 @@ class Catalyst9KCoreProfile(DeviceProfile):
 
 
 class C1300Profile(DeviceProfile):
-    # """C1300系。Cisco Small Business系CLI。IOS系とは出力形式が大きく異なる"""
-    # PRE_COMMANDS = ["terminal datadump"]
-    # SUPPORTS_ARP = True
-    # ARP_CMD = "show arp"                                     # show ip arp ではない
-    # VERSION_PARSER = "parse_show_version_smb"
-    # INVENTORY_PARSER = "parse_show_inventory_smb"
-    # MAC_TABLE_PARSER = "parse_mac_address_table_c1300"
-    # CDP_PARSER = "parse_cdp_neighbors_detail_c1300"
-    # ARP_PARSER = "parse_arp_table_c1300"
     """C1300系。Cisco Small Business系CLI。IOS系とは出力形式が大きく異なる"""
     PRE_COMMANDS = ["terminal datadump"]
     SUPPORTS_ARP = True
-    ARP_CMD = "show arp"
+    ARP_CMD = "show arp"                                     # show ip arp ではない
     VERSION_PARSER = "parse_show_version_smb"  # ← show versionは引き続きSMB用が必要か確認
     INVENTORY_PARSER = None  # ← 未指定にして、既定(IOS用)にフォールバックさせる
     MAC_TABLE_PARSER = "parse_mac_address_table_c1300"
