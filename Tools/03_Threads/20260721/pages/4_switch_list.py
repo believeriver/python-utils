@@ -231,6 +231,7 @@ def render_switch_list_page(config: dict, role: str):
         filtered,
         use_container_width=True,
         hide_index=True,
+        height=600,  # 追加：約18〜20行分の高さ
     )
 
     # ---- CSVエクスポート（admin のみ）----

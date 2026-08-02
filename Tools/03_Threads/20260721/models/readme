@@ -70,3 +70,25 @@ pages/4_switch_list.py
 2026.07.25
 device_profiles.py
 pages/5_switch_detail.py
+
+2026.08.01
+(.venv) 20260721$ ll | grep Aug
+drwxr-xr-x@  5 nobuyuki  staff    160 Aug  1 08:33 data/
+-rw-r--r--@  1 nobuyuki  staff   4283 Aug  1 15:24 device_profiles.py
+drwxr-xr-x@ 12 nobuyuki  staff    384 Aug  1 15:35 models/
+drwxr-xr-x@  9 nobuyuki  staff    288 Aug  1 08:33 pages/
+drwxr-xr-x@  5 nobuyuki  staff    160 Aug  1 15:17 parsers/
+
+(.venv) 20260721$ ll models | grep Aug
+-rw-r--r--@ 1 nobuyuki  staff   3533 Aug  1 15:35 readme
+(.venv) 20260721$ ll pages | grep Aug
+-rw-r--r--@ 1 nobuyuki  staff  11347 Aug  1 08:33 4_switch_list.py
+drwxr-xr-x@ 5 nobuyuki  staff    160 Aug  1 08:30 archive/
+(.venv) 20260721$ ll parsers | grep Aug
+-rw-r--r--@ 1 nobuyuki  staff  9441 Aug  1 15:17 parse.py
+(.venv) 20260721$
+
+parsers/parse.py
+device_profiles.py
+pages/4_switch_list.py
+
