@@ -7,7 +7,9 @@ from pprint import pformat
 import gc
 
 from config import Config, setup_logger
-from utils import SwitchListDataset, IReporterInterface, ReporterSample
+# from utils import SwitchListDataset, IReporterInterface, ReporterSample
+from dataset import SwitchListDataset, ClusterIniDataset
+from reporter import IReporterInterface, ReporterSample
 from executor import (
     ISSHExecutorInterface,
     FetchFileListExecutor,
@@ -61,7 +63,7 @@ def parse_args(argv):
 def main(argv):
     # targets from config.ini
     main_logger = setup_logger("main", Config.LEVEL)
-    dataset = SwitchListDataset()
+    dataset = SwitchListDataset(Config.SETTINGS_DIR, Config.CONFIG_FILE)
     main_logger.debug(dataset)
     targets = dataset.targets_list
 
