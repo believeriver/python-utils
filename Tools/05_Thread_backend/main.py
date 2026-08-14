@@ -15,7 +15,7 @@ from executor import (
     ServerInfo,
     main_single,
 )
-from concrete_executor import FetchPWDExecutor
+from concrete_executor import FetchPWDExecutor, PacctExecutor
 from thread_workers import set_queue, main_threads
 
 

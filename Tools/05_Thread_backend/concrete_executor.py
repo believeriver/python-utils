@@ -37,3 +37,32 @@ class FetchPWDExecutor(ISSHExecutorInterface):
         text_lines = [ln for ln in text if ln.strip()]
         result = text_lines[1:2]
         return result
+
+
+class PacctExecutor(ISSHExecutorInterface):
+    """
+    2026.08.14
+    Pacctデータを計算するPerlプログラムを実行する
+    """
+    # クラス変数としてデフォルトタイムアウトを持たせる
+    DEFAULT_TIMEOUT = 3600  # pacct処理を考慮して長めに(要調整)
+
+    @staticmethod
+    def build_ssh_client_cls():
+        return SSHClientSubprocess
+
+    def build_command(self) -> List[str]:
+        cluster_name = self.server_info.hostname
+        return [
+            f"perl /path/to/pacct_to_csv1.pl --cluster {cluster_name} --outdir /path/to/out",
+            f"perl /path/to/pacct_to_csv2.pl --cluster {cluster_name} --outdir /path/to/out",
+        ]
+
+    @property
+    def name(self) -> str:
+        return "PacctExecutor"
+
+    def execute_command(self):
+        self.execute()
+        # self.write_log()
+        return self.result

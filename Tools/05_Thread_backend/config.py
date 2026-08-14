@@ -22,12 +22,13 @@ class Config(object):
         "FetchFileListExecutor",
         "FetchLSDFExecutor",
         "FetchPWDExecutor",
+        "PacctExecutor",
     ]
     reporter_class_list = [
         "ReporterSample",]
 
     # SELECT EXECUTOR AND REPORTER
-    executor_idx = 2
+    executor_idx = 3
     reporter_idx = 0
 
     EXECUTOR_CLS = executor_class_list[executor_idx]
