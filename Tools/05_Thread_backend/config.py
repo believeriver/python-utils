@@ -19,9 +19,9 @@ class Config(object):
     LEVEL = logging.WARN
 
     # SELECT EXECUTOR, REPORTER, DATASET
-    executor_idx = 2
+    executor_idx = 3
     reporter_idx = 0
-    dataset_idx = 1
+    dataset_idx = 0
 
     # SET EXECUTOR_CLS
     executor_class_list = [

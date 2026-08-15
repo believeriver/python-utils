@@ -6,7 +6,6 @@ import json
 from typing import List, Type
 
 from config import Config, setup_logger
-# from utils import IReporterInterface, ReporterSample
 from reporter import IReporterInterface, ReporterSample
 from executor import ISSHExecutorInterface, ServerInfo
 
