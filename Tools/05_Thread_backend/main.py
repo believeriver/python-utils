@@ -7,10 +7,10 @@ from pprint import pformat
 import gc
 
 from config import Config, setup_logger
+from thread_workers import set_queue, main_threads, main_single
 from dataset import *
 from reporter import *
 from concrete_executor import *
-from thread_workers import set_queue, main_threads, main_single
 
 
 # -----------------------------
