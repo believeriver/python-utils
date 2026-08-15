@@ -7,9 +7,8 @@ from pprint import pformat
 import gc
 
 from config import Config, setup_logger
-from dataset import SwitchListDataset, ClusterIniDataset
+from dataset import *
 from reporter import *
-# from executor import *
 from concrete_executor import *
 from thread_workers import set_queue, main_threads, main_single
 
@@ -63,15 +62,15 @@ def main(argv):
         print(f"[ERROR] Dataset class '{Config.DATASET_CLS}' not found.")
         exit(1)
     if dataset_cls == ClusterIniDataset:
-        dataset = dataset_cls(Config.SETTINGS_DIR, Config.CLUSTER_INI_FILE)
+        _dataset = dataset_cls(Config.SETTINGS_DIR, Config.CLUSTER_INI_FILE)
     else:
-        dataset = dataset_cls(Config.SETTINGS_DIR, Config.CONFIG_FILE)
-    main_logger.debug(dataset)
-    targets = dataset.targets_list
+        _dataset = dataset_cls(Config.SETTINGS_DIR, Config.CONFIG_FILE)
+    main_logger.debug(_dataset)
+    targets = _dataset.targets_list
 
     target, log_level, debug, info, threaded = parse_args(argv)
-    executor = None
-    reporter = None
+    _executor = None
+    _reporter = None
     print(f"[INFO] Target: {target}, Log Level: {logging.getLevelName(log_level)}, Threaded: {threaded}")
     if target == 1:
         print("[INFO] Checking EXECUTOR_CLS...")
@@ -82,10 +81,10 @@ def main(argv):
         # executor = FetchLSDFExecutor
         executor_name = Config.EXECUTOR_CLS
         reporter_cls = Config.REPORTER_CLS
-        executor = getattr(module, executor_name, None)
-        reporter = getattr(module, reporter_cls, None)
+        _executor = getattr(module, executor_name, None)
+        _reporter = getattr(module, reporter_cls, None)
 
-    if executor is None:
+    if _executor is None:
         print("[ERROR]Please input option (number, log level): number 1 or 2")
         exit(1)
 
@@ -94,12 +93,12 @@ def main(argv):
         q = set_queue(_targets=targets)
         main_threads(_q=q,
                      workers=Config.MAX_WORKERS,
-                     executor_cls=executor,
-                     reporter_cls=reporter,
+                     executor_cls=_executor,
+                     reporter_cls=_reporter,
                      level=log_level)
     else:
         # NO threading version
-        main_single(_targets=targets, executor_cls=executor, level=log_level)
+        main_single(_targets=targets, executor_cls=_executor, level=log_level)
 
 
 if __name__ == "__main__":
