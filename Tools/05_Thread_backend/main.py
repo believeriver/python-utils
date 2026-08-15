@@ -7,7 +7,6 @@ from pprint import pformat
 import gc
 
 from config import Config, setup_logger
-# from utils import SwitchListDataset, IReporterInterface, ReporterSample
 from dataset import SwitchListDataset, ClusterIniDataset
 from reporter import IReporterInterface, ReporterSample
 from executor import (
@@ -69,7 +68,10 @@ def main(argv):
     if dataset_cls is None:
         print(f"[ERROR] Dataset class '{Config.DATASET_CLS}' not found.")
         exit(1)
-    dataset = dataset_cls(Config.SETTINGS_DIR, Config.CONFIG_FILE)
+    if dataset_cls == ClusterIniDataset:
+        dataset = dataset_cls(Config.SETTINGS_DIR, Config.CLUSTER_INI_FILE)
+    else:
+        dataset = dataset_cls(Config.SETTINGS_DIR, Config.CONFIG_FILE)
     main_logger.debug(dataset)
     targets = dataset.targets_list
 
