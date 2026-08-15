@@ -28,7 +28,7 @@ class Config(object):
         "FetchFileListExecutor",
         "FetchLSDFExecutor",
         "FetchPWDExecutor",
-        "PacctExecutor",
+        "ClusterCommandExecutor",
     ]
     reporter_class_list = [
         "ReporterSample",

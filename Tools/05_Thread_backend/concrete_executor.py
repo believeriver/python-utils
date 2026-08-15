@@ -105,10 +105,11 @@ class FetchPWDExecutor(ISSHExecutorInterface):
 # Concrete Executor.
 # command defined in cluster.ini
 # -----------------------------
-class PacctExecutor(ISSHExecutorInterface):
+class ClusterCommandExecutor(ISSHExecutorInterface):
     """
     2026.08.14
-    Pacctデータを計算するPerlプログラムを実行する
+    cluster.iniに定義されたコマンドを実行する例。
+    ex)pacctデータを計算するPerlプログラムを実行する
     """
     # クラス変数としてデフォルトタイムアウトを持たせる
     DEFAULT_TIMEOUT = 3600  # pacct処理を考慮して長めに(要調整)
@@ -125,7 +126,7 @@ class PacctExecutor(ISSHExecutorInterface):
 
     @property
     def name(self) -> str:
-        return "PacctExecutor"
+        return "ClusterCommandExecutor"
 
     def execute_command(self):
         self.execute()
