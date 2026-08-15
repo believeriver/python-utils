@@ -63,7 +63,13 @@ def parse_args(argv):
 def main(argv):
     # targets from config.ini
     main_logger = setup_logger("main", Config.LEVEL)
-    dataset = SwitchListDataset(Config.SETTINGS_DIR, Config.CONFIG_FILE)
+
+    module = sys.modules[__name__]
+    dataset_cls = getattr(module, Config.DATASET_CLS, None)
+    if dataset_cls is None:
+        print(f"[ERROR] Dataset class '{Config.DATASET_CLS}' not found.")
+        exit(1)
+    dataset = dataset_cls(Config.SETTINGS_DIR, Config.CONFIG_FILE)
     main_logger.debug(dataset)
     targets = dataset.targets_list
 
@@ -75,11 +81,11 @@ def main(argv):
         print("[INFO] Checking EXECUTOR_CLS...")
         print(f"[INFO] EXECUTOR_CLS: {Config.EXECUTOR_CLS}")
         print(f"[INFO] REPORTER_CLS: {Config.REPORTER_CLS}")
+        print(f"[INFO] DATASET_CLS: {Config.DATASET_CLS}")
     if target == 2:
         # executor = FetchLSDFExecutor
         executor_name = Config.EXECUTOR_CLS
         reporter_cls = Config.REPORTER_CLS
-        module = sys.modules[__name__]
         executor = getattr(module, executor_name, None)
         reporter = getattr(module, reporter_cls, None)
 

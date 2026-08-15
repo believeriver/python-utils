@@ -17,6 +17,11 @@ class Config(object):
     OUTPUT_DIR = "out"
     LEVEL = logging.WARN
 
+    # SELECT EXECUTOR, REPORTER, DATASET
+    executor_idx = 3
+    reporter_idx = 0
+    dataset_idx = 1
+
     # SET EXECUTOR_CLS
     executor_class_list = [
         "FetchFileListExecutor",
@@ -26,13 +31,13 @@ class Config(object):
     ]
     reporter_class_list = [
         "ReporterSample",]
-
-    # SELECT EXECUTOR AND REPORTER
-    executor_idx = 3
-    reporter_idx = 0
+    dataset_class_list = [
+        "ClusterIniDataset" ,
+        "SwitchListDataset",]
 
     EXECUTOR_CLS = executor_class_list[executor_idx]
     REPORTER_CLS = reporter_class_list[reporter_idx]
+    DATASET_CLS = dataset_class_list[dataset_idx]
 
     # THREADING
     MAX_WORKERS = 3
