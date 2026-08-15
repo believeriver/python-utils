@@ -128,3 +128,28 @@ def main_threads(_q: queue.Queue,
 
     reporter_cls.print_results(worker.results)
     return worker.results
+
+
+#-----------------------------
+# Example usage: main_single, no threading.
+#-----------------------------
+def main_single(_targets: List[dict],
+                executor_cls: Type[ISSHExecutorInterface],
+                level=Config.LEVEL):
+    datasets = []
+    for t in _targets:
+        server_info = ServerInfo(
+            ipaddr=t.get("ipaddr", None),
+            hostname=t.get("hostname", None),
+            username=t.get("username", Config.USERNAME),
+            password=t.get("password", Config.PASSWORD))
+        datasets.append(server_info)
+
+    # print(len(datasets))
+    results = []
+    for dataset in datasets:
+        executor = executor_cls(server_info=dataset, level=level)
+        res = executor.execute_command()
+        results.append({dataset.hostname: res})
+
+    print(json.dumps(results, indent=2, ensure_ascii=False))

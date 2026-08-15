@@ -1,0 +1,1 @@
+[ERROR] SSH host is required (ipaddr or hostname)

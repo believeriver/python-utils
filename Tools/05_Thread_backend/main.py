@@ -9,9 +9,9 @@ import gc
 from config import Config, setup_logger
 from dataset import SwitchListDataset, ClusterIniDataset
 from reporter import *
-from executor import *
+# from executor import *
 from concrete_executor import *
-from thread_workers import set_queue, main_threads
+from thread_workers import set_queue, main_threads, main_single
 
 
 # -----------------------------
