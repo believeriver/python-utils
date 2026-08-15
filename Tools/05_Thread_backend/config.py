@@ -19,9 +19,9 @@ class Config(object):
     LEVEL = logging.WARN
 
     # SELECT EXECUTOR, REPORTER, DATASET
-    executor_idx = 3
+    executor_idx = 1
     reporter_idx = 0
-    dataset_idx = 0
+    dataset_idx = 1
 
     # SET EXECUTOR_CLS
     executor_class_list = [
@@ -31,10 +31,12 @@ class Config(object):
         "PacctExecutor",
     ]
     reporter_class_list = [
-        "ReporterSample",]
+        "ReporterSample",
+    ]
     dataset_class_list = [
         "ClusterIniDataset" ,
-        "SwitchListDataset",]
+        "SwitchListDataset",
+    ]
 
     EXECUTOR_CLS = executor_class_list[executor_idx]
     REPORTER_CLS = reporter_class_list[reporter_idx]

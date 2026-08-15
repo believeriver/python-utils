@@ -279,78 +279,11 @@ class ISSHExecutorInterface(ABC):
         pass
 
 
-# -----------------------------
-# Concrete Executor.(Example)
-# -----------------------------
-class FetchFileListExecutor(ISSHExecutorInterface):
-    """
-    2026.03.11 sample code for Linux command.
-    SSHクライアントはSSHClientSubprocessを使用する例。
-    show /home file list.
-    """
-    @staticmethod
-    def build_ssh_client_cls():
-        return SSHClientSubprocess
-
-    @staticmethod
-    def build_command() -> List[str]:
-        return [
-            "ls -l /home",
-        ]
-
-    @property
-    def name(self) -> str:
-        return "FetchFileListExecutor"
-
-    def execute_command(self):
-        self.execute()
-        self.write_log()
-        return self.result
-
-
-class FetchLSDFExecutor(ISSHExecutorInterface):
-    """
-    2026.03.11 sample code for Linux command.
-    show /home file list.
-    show nfs volume.
-    2つ以上のコマンドを実行する例。
-    ParamikoSSHClient()で実行することを想定（複数コマンドの実行はsubprocessだと少し面倒なので）。
-    """
-    @staticmethod
-    def build_ssh_client_cls():
-        return ParamikoSSHClient
-
-    @staticmethod
-    def build_command() -> List[str]:
-        return [
-            "ls /home --color=never",
-            "df -h"
-        ]
-
-    @property
-    def name(self) -> str:
-        return "FetchFileListExecutor"
-
-    def execute_command(self):
-        #
-        #memo split
-        # memo splitlines()は、改行コードを考慮して行ごとに分割する。改行コードは削除される。
-        # self.result = self.result.split("\n")
-        # text = self.result.splitlines()
-        #
-        self.execute()
-        self.write_log()
-        text = self.result
-        text_lines = [ln for ln in text if ln.strip()]
-        result = text_lines[1:2]
-        return result
-
-
 #-----------------------------
 # Example usage: main_single
 #-----------------------------
 def main_single(_targets: List[dict],
-                executor_cls: Type[ISSHExecutorInterface] = FetchFileListExecutor,
+                executor_cls: Type[ISSHExecutorInterface],
                 level=Config.LEVEL):
     datasets = []
     for t in _targets:
