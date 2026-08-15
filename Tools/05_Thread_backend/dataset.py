@@ -32,7 +32,7 @@ class SwitchListDataset(IDatasetInterface):
     fetch ip address and hostname list from config life.
         - config.iniの内容を読み込んで、IPアドレスとホスト名のリストを作成する例。
         - config.iniは以下のような形式を想定（1行目がヘッダー、2行目以降がデータ）：
-        ipaddr,hostname,username,password
+        ipaddr,hostname,username,password,command
     folder: settings
     file: config.ini
     """
@@ -63,6 +63,11 @@ class ClusterIniDataset(IDatasetInterface):
     [cluster-a]
     ipaddr = 192.168.10.1
     hostname = cluster-a-headnode
+    command = df
+
+    not defined in cluster.ini, use default username and password.
+    password = Config.PASSWORD(default)
+    username = Config.USERNAME(default)
     """
     def __init__(self, settings_dir: str, config_file: str):
         self.targets_file = os.path.join(os.getcwd(), settings_dir, config_file)

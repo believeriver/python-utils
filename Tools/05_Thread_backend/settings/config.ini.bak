@@ -3,4 +3,4 @@ rx8headnode,192.168.64.2,,,/usr/bin/ls
 rx8headnode,192.168.64.2,root,rootroot,/usr/bin/ls
 rx8node01,192.168.64.4,,,ls
 rx8node01,192.168.64.4,root,rootroot,ls
-
+,,,,

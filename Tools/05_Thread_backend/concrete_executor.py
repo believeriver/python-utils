@@ -120,6 +120,7 @@ class ClusterCommandExecutor(ISSHExecutorInterface):
 
     def build_command(self) -> List[str]:
         cluster_command = self.server_info.command
+        print(f"[INFO] {self.server_info.hostname}:{cluster_command}")
         return [
             cluster_command,
         ]
