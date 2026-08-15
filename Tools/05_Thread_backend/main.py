@@ -95,6 +95,7 @@ def main(argv):
                      workers=Config.MAX_WORKERS,
                      executor_cls=_executor,
                      reporter_cls=_reporter,
+                     timeout=Config.TIMEOUT,
                      level=log_level)
     else:
         # NO threading version

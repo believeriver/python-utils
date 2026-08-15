@@ -117,12 +117,13 @@ def main_threads(_q: queue.Queue,
                  workers=1,
                  executor_cls: Type[ISSHExecutorInterface] = None,
                  reporter_cls: Type[IReporterInterface] = ReporterSample,
+                 timeout=Config.TIMEOUT,
                  level=Config.LEVEL):
     worker = ThreadWorkers(
         executor=executor_cls,
         _queue=_q,
         workers=workers,
-        timeout=Config.TIMEOUT,
+        timeout=timeout,
         level=level)
     worker.run()
 
