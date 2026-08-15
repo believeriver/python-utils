@@ -62,6 +62,9 @@ class SSHClientSubprocess(ISSHClientInterface):
         self.log.debug({"commands": self.commands})
         cmd = []
         if self.ssh_host:
+            # print("ssh_host: ", self.ssh_host)
+            # print("ssh_user: ", self.ssh_user)
+            # print("password: ", self.password)
             user_at = "{}@{}".format(self.ssh_user, self.ssh_host) if self.ssh_user else self.ssh_host
             cmd += ["ssh", user_at]
 
