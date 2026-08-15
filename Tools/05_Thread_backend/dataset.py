@@ -74,9 +74,11 @@ class ClusterIniDataset(IDatasetInterface):
         for section in parser.sections():
             ipaddr = parser.get(section, "ipaddr", fallback=None)
             hostname = parser.get(section, "hostname", fallback=section)
+            command = parser.get(section, "command", fallback=section)
             if not ipaddr and not hostname:
                 continue
             self.targets_list.append({
                 "ipaddr": ipaddr,
                 "hostname": hostname,
+                "command": command,
             })

@@ -104,6 +104,7 @@ def set_queue(_targets: List[dict]) -> queue.Queue:
         server_info = ServerInfo(
             ipaddr=t.get("ipaddr", None),
             hostname=t.get("hostname", None),
+            command=t.get("command", None),
             username=username,
             password=password,)
         q.put(server_info)

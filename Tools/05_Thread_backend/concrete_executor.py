@@ -52,10 +52,9 @@ class PacctExecutor(ISSHExecutorInterface):
         return SSHClientSubprocess
 
     def build_command(self) -> List[str]:
-        cluster_name = self.server_info.hostname
+        cluster_command = self.server_info.command
         return [
-            f"perl /path/to/pacct_to_csv1.pl --cluster {cluster_name} --outdir /path/to/out",
-            f"perl /path/to/pacct_to_csv2.pl --cluster {cluster_name} --outdir /path/to/out",
+            cluster_command,
         ]
 
     @property

@@ -187,11 +187,13 @@ class ParamikoSSHClient(ISSHClientInterface):
 
 #-----------------------------
 # SSH Executor Interface
+# 2026.08.15 add command execution and logging functionality
 #-----------------------------
 @dataclass
 class ServerInfo:
     ipaddr: str = None
     hostname: str = None
+    command: str = None
     username: str = Config.USERNAME
     password: str = Config.PASSWORD
     port: int = Config.PORT

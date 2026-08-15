@@ -13,12 +13,13 @@ class Config(object):
 
     # Other Settings
     CONFIG_FILE = "config.ini"
+    CLUSTER_INI_FILE = "cluster.ini"
     SETTINGS_DIR = "settings"
     OUTPUT_DIR = "out"
     LEVEL = logging.WARN
 
     # SELECT EXECUTOR, REPORTER, DATASET
-    executor_idx = 3
+    executor_idx = 2
     reporter_idx = 0
     dataset_idx = 1
 
