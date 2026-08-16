@@ -3,6 +3,11 @@ from abc import ABC, abstractmethod
 from typing import List
 
 
+"""
+Date: 2026.08.16
+Version: 1.0
+Created by N.T
+"""
 # -----------------------------
 # Reporter
 # -----------------------------

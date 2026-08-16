@@ -6,6 +6,11 @@ from abc import ABC, abstractmethod
 from typing import List, Dict
 
 
+"""
+Date: 2026.08.16
+Version: 1.0
+Created by N.T
+"""
 class IDatasetInterface(ABC):
     """
     ターゲットリスト(IPアドレス・ホスト名等)を読み込むデータセットの共通インターフェース。

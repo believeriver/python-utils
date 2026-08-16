@@ -13,6 +13,12 @@ from dataclasses import dataclass
 
 from config import Config, setup_logger
 
+"""
+Date: 2026.08.16
+Version: 1.0
+Created by N.T
+"""
+
 # -----------------------------
 # SSH Connection
 # -----------------------------
