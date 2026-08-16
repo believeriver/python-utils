@@ -58,6 +58,7 @@ def main(argv):
 
     module = sys.modules[__name__]
     dataset_cls = getattr(module, Config.DATASET_CLS, None)
+
     if dataset_cls is None:
         print(f"[ERROR] Dataset class '{Config.DATASET_CLS}' not found.")
         exit(1)
@@ -77,6 +78,11 @@ def main(argv):
         print(f"[INFO] EXECUTOR_CLS: {Config.EXECUTOR_CLS}")
         print(f"[INFO] REPORTER_CLS: {Config.REPORTER_CLS}")
         print(f"[INFO] DATASET_CLS: {Config.DATASET_CLS}")
+        if Config.EXECUTOR_CLS == "ClusterCommandExecutor":
+            # If using ClusterCommandExecutor, set a longer timeout
+            Config.TIMEOUT = Config.CLUSTER_COMMAND_TIMEOUT
+            print(f"[INFO] Using ClusterCommandExecutor, setting TIMEOUT to {Config.TIMEOUT} seconds.")
+
     if target == 2:
         # executor = FetchLSDFExecutor
         executor_name = Config.EXECUTOR_CLS

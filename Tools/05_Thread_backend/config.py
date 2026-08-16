@@ -10,6 +10,7 @@ class Config(object):
     PASSWORD = "rootroot"
     PORT = 22
     TIMEOUT = 10
+    CLUSTER_COMMAND_TIMEOUT = 3600
 
     # Other Settings
     CONFIG_FILE = "config.ini"
