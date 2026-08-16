@@ -55,13 +55,13 @@ def parse_args(argv):
 def main(argv):
     # targets from config.ini
     main_logger = setup_logger("main", Config.LEVEL)
-
     module = sys.modules[__name__]
     dataset_cls = getattr(module, Config.DATASET_CLS, None)
 
     if dataset_cls is None:
         print(f"[ERROR] Dataset class '{Config.DATASET_CLS}' not found.")
         exit(1)
+
     if dataset_cls == ClusterIniDataset:
         _dataset = dataset_cls(Config.SETTINGS_DIR, Config.CLUSTER_INI_FILE)
     else:
@@ -73,15 +73,16 @@ def main(argv):
     _executor = None
     _reporter = None
     print(f"[INFO] Target: {target}, Log Level: {logging.getLevelName(log_level)}, Threaded: {threaded}")
+    if Config.EXECUTOR_CLS == "ClusterCommandExecutor":
+        # If using ClusterCommandExecutor, set a longer timeout
+        Config.TIMEOUT = Config.CLUSTER_COMMAND_TIMEOUT
+        print(f"[INFO] Using ClusterCommandExecutor, setting TIMEOUT to {Config.TIMEOUT} seconds.")
+
     if target == 1:
         print("[INFO] Checking EXECUTOR_CLS...")
         print(f"[INFO] EXECUTOR_CLS: {Config.EXECUTOR_CLS}")
         print(f"[INFO] REPORTER_CLS: {Config.REPORTER_CLS}")
         print(f"[INFO] DATASET_CLS: {Config.DATASET_CLS}")
-        if Config.EXECUTOR_CLS == "ClusterCommandExecutor":
-            # If using ClusterCommandExecutor, set a longer timeout
-            Config.TIMEOUT = Config.CLUSTER_COMMAND_TIMEOUT
-            print(f"[INFO] Using ClusterCommandExecutor, setting TIMEOUT to {Config.TIMEOUT} seconds.")
 
     if target == 2:
         # executor = FetchLSDFExecutor
@@ -91,7 +92,10 @@ def main(argv):
         _reporter = getattr(module, reporter_cls, None)
 
     if _executor is None:
-        print("[ERROR]Please input option (number, log level): number 1 or 2")
+        if target == 1:
+            print(f"[ERROR] Executor class '{Config.EXECUTOR_CLS}' not found.")
+        else:
+            print("[ERROR]Please input option (number, log level): number 1 or 2")
         exit(1)
 
     if threaded:
