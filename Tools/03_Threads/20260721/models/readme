@@ -101,5 +101,8 @@ Changes not staged for commit:
         modified:   models/switch.py
         modified:   pages/6_switch_edit.py
         modified:   streamlit_app.py
+        activate_switches.py
+        settings/activate_list.csv
+
 
 
