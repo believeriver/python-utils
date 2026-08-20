@@ -8,9 +8,6 @@
 assets.csv の管理方法:
 - 増設したら行を1つ追加する(start_date = 稼働開始日、end_date は空)
 - 廃止したら該当行の end_date に廃止日を入れる
-- 「実際には稼働しているが、データが整っていないので一旦ダッシュボードから
-  隠したい」場合は end_date ではなく enabled 列を FALSE にする
-  (end_date は"廃止"という実態を表すものなので、一時的な非表示には使わない)
 - コードは変更不要
 """
 from __future__ import annotations
@@ -27,20 +24,7 @@ ASSETS_PATH = Path(__file__).parent / "assets.csv"
 @st.cache_data(ttl=300, show_spinner=False)
 def load_assets() -> pd.DataFrame:
     df = pd.read_csv(ASSETS_PATH, parse_dates=["start_date", "end_date"])
-    if "enabled" in df.columns:
-        df["enabled"] = (
-            df["enabled"].astype(str).str.strip().str.upper().map({"TRUE": True, "FALSE": False})
-        )
-        df["enabled"] = df["enabled"].fillna(True)
-    else:
-        # enabled 列が無い台帳(旧形式)は全て表示扱いにする
-        df["enabled"] = True
     return df
-
-
-def _visible_mask(df: pd.DataFrame, start: date, end: date) -> pd.Series:
-    """稼働期間が重なっており、かつ enabled=TRUE(非表示にされていない)項目を対象とする"""
-    return _active_mask(df, start, end) & df["enabled"]
 
 
 def _active_mask(df: pd.DataFrame, start: date, end: date) -> pd.Series:
@@ -55,10 +39,9 @@ def _active_mask(df: pd.DataFrame, start: date, end: date) -> pd.Series:
 
 
 def area_structure_for_period(start: date, end: date) -> dict:
-    """指定期間に稼働していた項目のうち、非表示にされていないものだけで
-    area -> subgroup -> [item_id] を組み立てる"""
+    """指定期間に稼働していた項目だけで area -> subgroup -> [item_id] を組み立てる"""
     df = load_assets()
-    active = df.loc[_visible_mask(df, start, end)]
+    active = df.loc[_active_mask(df, start, end)]
     structure: dict = {}
     for area, area_df in active.groupby("area", sort=False):
         structure[area] = {}
@@ -74,7 +57,7 @@ def comparison_groups_for_period(start: date, end: date) -> dict:
     category="cluster" の項目のみを対象にしている。
     """
     df = load_assets()
-    active = df.loc[_visible_mask(df, start, end) & (df["category"] == "cluster")]
+    active = df.loc[_active_mask(df, start, end) & (df["category"] == "cluster")]
     return {
         subgroup: sub_df["item_id"].tolist()
         for subgroup, sub_df in active.groupby("subgroup", sort=False)
