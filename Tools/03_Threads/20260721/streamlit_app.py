@@ -105,3 +105,5 @@ st.warning(
 # ---- フッター ----
 st.divider()
 st.caption("Network Monitor v1.0　／　管理: 情報システム部門")
+
+# streamlit run streamlit_app.py

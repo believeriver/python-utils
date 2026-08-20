@@ -92,3 +92,14 @@ parsers/parse.py
 device_profiles.py
 pages/4_switch_list.py
 
+
+2026.08.20
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   models/readme
+        modified:   models/switch.py
+        modified:   pages/6_switch_edit.py
+        modified:   streamlit_app.py
+
+

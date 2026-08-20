@@ -227,3 +227,36 @@ class Switch(BaseDatabase):
             session.close()
             logger.info(f"switch deactivated: {hostname}")
             return True
+
+    # models/switch.py に追加(2026.08.20)
+    @staticmethod
+    def activate(hostname: str) -> bool:
+        """指定ホストを有効化する。存在しなければFalseを返す"""
+        with db_write_lock:
+            session = database.connect_db()
+            row = session.query(Switch).filter(Switch.hostname == hostname).first()
+            if row is None:
+                session.close()
+                return False
+            row.is_active = True
+            session.commit()
+            session.close()
+            logger.info(f"switch activated: {hostname}")
+            return True
+
+    @staticmethod
+    def fetch_inactive() -> List[dict]:
+        """無効化されているスイッチの一覧を返す"""
+        session = database.connect_db()
+        rows = session.query(Switch).filter(Switch.is_active == False).all()
+        result = [{
+            "id": row.id,
+            "hostname": row.hostname,
+            "ip_address": row.ip_address,
+            "hardware_model": row.hardware_model,
+            "location": row.location,
+            "role": row.role,
+            "updated_at": row.updated_at,
+        } for row in rows]
+        session.close()
+        return result

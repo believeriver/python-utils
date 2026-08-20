@@ -161,6 +161,61 @@ def render_create_form():
                 st.cache_data.clear()
                 st.rerun()
 
+# ----------------------------------------------------------------------------
+# 2026.08.20
+# 無効化リスト
+# ----------------------------------------------------------------------------
+# pages/6_switch_edit.py に追加
+
+def render_bulk_activate_form():
+    st.subheader("♻️ 無効化スイッチの一括有効化")
+    st.caption("誤って無効化した場合や、再稼働させる機器をまとめて有効化します")
+
+    inactive = Switch.fetch_inactive()
+
+    if not inactive:
+        st.info("無効化されているスイッチはありません。")
+        return
+
+    df = pd.DataFrame(inactive)
+    df = df.rename(columns={
+        "hostname": "ホスト名", "ip_address": "IPアドレス",
+        "hardware_model": "機種", "location": "設置場所", "role": "役割",
+    })
+    df["選択"] = False
+
+    st.caption(f"無効化されているスイッチ: {len(df)}件")
+
+    edited = st.data_editor(
+        df[["選択", "ホスト名", "IPアドレス", "機種", "設置場所", "役割"]],
+        use_container_width=True,
+        hide_index=True,
+        disabled=["ホスト名", "IPアドレス", "機種", "設置場所", "役割"],  # 選択列以外は編集不可
+        key="bulk_activate_editor",
+    )
+
+    selected = edited[edited["選択"] == True]["ホスト名"].tolist()
+
+    if selected:
+        st.info(f"{len(selected)}件を有効化します: {', '.join(selected[:5])}{' ...' if len(selected) > 5 else ''}")
+
+        if st.button("♻️ 選択したスイッチを有効化", type="primary"):
+            success = []
+            failed = []
+            for hostname in selected:
+                if Switch.activate(hostname):
+                    success.append(hostname)
+                else:
+                    failed.append(hostname)
+
+            st.success(f"{len(success)}件を有効化しました。")
+            if failed:
+                st.error(f"{len(failed)}件で失敗しました: {', '.join(failed)}")
+
+            st.cache_data.clear()
+            st.rerun()
+    else:
+        st.caption("有効化したいスイッチの「選択」列にチェックを入れてください。")
 
 # ---------------------------------------------------------------------------
 # ページ本体
@@ -169,11 +224,13 @@ def render_create_form():
 def render_switch_edit_page():
     st.title("🛠️ スイッチ登録・編集")
 
-    tab1, tab2 = st.tabs(["✏️ 編集", "➕ 新規追加"])
+    tab1, tab2, tab3 = st.tabs(["✏️ 編集", "➕ 新規追加", "♻️ 一括有効化"])
     with tab1:
         render_edit_form()
     with tab2:
         render_create_form()
+    with tab3:
+        render_bulk_activate_form()
 
 
 # ---------------------------------------------------------------------------
