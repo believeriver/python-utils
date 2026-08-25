@@ -141,10 +141,12 @@ def render_switch_list_page(config: dict, role: str):
 
     # ---- 集計メトリクス ----
     total = len(df)
-    active_count = (df["ステータス"] == "🟢 有効").sum()
-    uncollected_count = (df["情報取得"] == "⚠️ 未取得").sum()
-    ping_fail_count = (df["Ping"] == "🔴 応答なし").sum()
-    ssh_fail_count = (df["SSH"] == "🔴 失敗").sum()
+    active_df = df[df["ステータス"] == "🟢 有効"]  # 有効なスイッチだけを抽出
+
+    active_count = len(active_df)
+    uncollected_count = (active_df["情報取得"] == "⚠️ 未取得").sum()
+    ping_fail_count = (active_df["Ping"] == "🔴 応答なし").sum()
+    ssh_fail_count = (active_df["SSH"] == "🔴 失敗").sum()
 
     m1, m2, m3 = st.columns(3)
     m1.metric("総登録数", total)
