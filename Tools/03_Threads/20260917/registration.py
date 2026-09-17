@@ -375,6 +375,58 @@ def collect_arp_table(targets: list, workers: int = Config.MAX_WORKERS) -> None:
 
     _print_parse_failure_summary("ARP収集", parse_failures)
 
+# -----------------------------------------------------------------------------
+# ITAM番号の自動付与処理
+# -----------------------------------------------------------------------------
+def update_itam_from_csv(csv_path: str) -> dict:
+    """
+    ホスト名とITAM番号の組み合わせCSVから、ITAM番号のみを一括更新する。
+    CSV形式: hostname,itam_number
+
+    戻り値: {"succeeded": [...], "failed": [...]}
+    """
+    succeeded = []
+    failed = []
+
+    with open(csv_path, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        reader.fieldnames = [name.strip() for name in reader.fieldnames]
+
+        for row_number, raw_row in enumerate(reader, start=2):
+            row = _clean_row(raw_row)
+            hostname = row.get("hostname")
+            itam_number = row.get("itam_number")
+
+            if not hostname:
+                failed.append({"row_number": row_number, "hostname": "(不明)", "reason": "hostnameが空"})
+                continue
+
+            if Switch.update_itam_number(hostname, itam_number):
+                succeeded.append({"hostname": hostname, "itam_number": itam_number or "(クリア)"})
+            else:
+                failed.append({"row_number": row_number, "hostname": hostname, "reason": "DB未登録"})
+                logger.warning(f"[ITAM] DBに存在しないホスト: {hostname}(row={row_number})")
+
+    return {"succeeded": succeeded, "failed": failed}
+
+
+def print_itam_update_report(result: dict) -> None:
+    print("=" * 60)
+    print(f"[INFO] ITAM番号 更新成功: {len(result['succeeded'])}件")
+    print(f"[INFO] ITAM番号 更新失敗: {len(result['failed'])}件")
+
+    if result["succeeded"]:
+        print("-" * 60)
+        for item in result["succeeded"]:
+            print(f"  {item['hostname']} -> {item['itam_number']}")
+
+    if result["failed"]:
+        print("-" * 60)
+        print("[WARN] 以下は更新できませんでした:")
+        for item in result["failed"]:
+            print(f"  行{item['row_number']} ({item['hostname']}): {item['reason']}")
+
+    print("=" * 60)
 
 # ---------------------------------------------------------------------------
 # main
@@ -418,8 +470,13 @@ def main(argv):
         dataset = LivenessTargetDataset(liveness_file)
         run_liveness_check(dataset.targets_list, workers=20)
 
+    elif step == "8":
+        itam_file = os.path.join(cur_dir, Config.SETTINGS_DIR, Config.ITAM_CSV)
+        result = update_itam_from_csv(itam_file)
+        print_itam_update_report(result)
+
     else:
-        print("[ERROR] 引数は 1〜7 のいずれかを指定してください")
+        print("[ERROR] 引数は 1〜8 のいずれかを指定してください")
         exit(1)
 
     # DBを更新するステップ(1〜7すべて)の最後に共有先へコピー

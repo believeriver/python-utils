@@ -26,6 +26,7 @@ class Config(object):
     # Other Settings
     CONFIG_FILE = "config.ini"
     REGISTER_FILE = "register.ini"
+    ITAM_CSV = "itam_list.csv"
     SETTINGS_DIR = "settings"
     OUTPUT_DIR = "out"
     LIVENESS_TARGET_CSV = "liveness_targets.csv"

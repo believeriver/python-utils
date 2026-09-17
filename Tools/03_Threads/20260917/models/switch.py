@@ -263,3 +263,18 @@ class Switch(BaseDatabase):
         } for row in rows]
         session.close()
         return result
+
+    @staticmethod
+    def update_itam_number(hostname: str, itam_number: str) -> bool:
+        """ホスト名を指定して、ITAM番号のみを更新する。存在しなければFalseを返す"""
+        with db_write_lock:
+            session = database.connect_db()
+            row = session.query(Switch).filter(Switch.hostname == hostname).first()
+            if row is None:
+                session.close()
+                return False
+            row.itam_number = itam_number or None
+            session.commit()
+            session.close()
+            logger.info(f"itam_number updated: {hostname} -> {itam_number}")
+            return True
