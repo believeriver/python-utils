@@ -57,7 +57,7 @@ def fetch_switch_dataframe() -> pd.DataFrame:
     switches = Switch.fetch_all()
     if not switches:
         return pd.DataFrame(columns=[
-            "ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
+            "ITAM番号", "ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
             "ステータス", "情報取得", "Ping", "SSH", "死活確認", "最終更新",
             "サービスタグ", "MACアドレス", "ファームウェア", "データVLAN", "NTPサーバ",
         ])
@@ -117,10 +117,9 @@ def fetch_switch_dataframe() -> pd.DataFrame:
         "ntp_servers": "NTPサーバ",
     })
 
-    return df[["ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
+    return df[["ITAM番号", "ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
                "ステータス", "情報取得", "Ping", "SSH", "死活確認", "最終更新",
-               "サービスタグ", "ITAM番号", "MACアドレス", "ファームウェア",
-               "データVLAN", "NTPサーバ"]]
+               "サービスタグ", "MACアドレス", "ファームウェア", "データVLAN", "NTPサーバ"]]
 
 
 # ---------------------------------------------------------------------------
