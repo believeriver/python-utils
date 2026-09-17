@@ -106,18 +106,21 @@ def fetch_switch_dataframe() -> pd.DataFrame:
         lambda v: "-" if v is None or (isinstance(v, float) and pd.isna(v)) else str(int(v))
     )
     df["ntp_servers"] = df["ntp_servers"].apply(_fill_dash)
+    df["itam_number"] = df["itam_number"].apply(_fill_dash)
 
     df = df.rename(columns={
         "hostname": "ホスト名", "ip_address": "IPアドレス", "hardware_model": "機種",
         "location": "設置場所", "switch_type": "種類", "role": "役割",
-        "service_tag": "サービスタグ", "base_mac_address": "MACアドレス",
+        "service_tag": "サービスタグ", "itam_number": "ITAM番号",   # 追加
+        "base_mac_address": "MACアドレス",
         "firmware_version": "ファームウェア", "data_vlan": "データVLAN",
         "ntp_servers": "NTPサーバ",
     })
 
     return df[["ホスト名", "IPアドレス", "機種", "設置場所", "種類", "役割",
                "ステータス", "情報取得", "Ping", "SSH", "死活確認", "最終更新",
-               "サービスタグ", "MACアドレス", "ファームウェア", "データVLAN", "NTPサーバ"]]
+               "サービスタグ", "ITAM番号", "MACアドレス", "ファームウェア",
+               "データVLAN", "NTPサーバ"]]
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +185,7 @@ def render_switch_list_page(config: dict, role: str):
             location_filter = st.text_input("設置場所（部分一致）", placeholder="例: 本館")
         with f_col3:
             ip_filter = st.text_input("IPアドレス（部分一致）", placeholder="例: 172.24.64")
+            itam_filter = st.text_input("ITAM番号（部分一致）", placeholder="例: ITAM-001")
 
         f_col4, f_col5, f_col6 = st.columns(3)
         with f_col4:
@@ -225,6 +229,8 @@ def render_switch_list_page(config: dict, role: str):
         filtered = filtered[filtered["Ping"].isin(sel_ping)]
     if sel_ssh:
         filtered = filtered[filtered["SSH"].isin(sel_ssh)]
+    if itam_filter:
+        filtered = filtered[filtered["ITAM番号"].str.contains(itam_filter, case=False, na=False)]
 
     st.caption(f"表示中: {len(filtered)}件 / 全{total}件")
 

@@ -19,6 +19,7 @@ class Switch(BaseDatabase):
     hardware_model = Column(String(32), nullable=False)
     base_mac_address = Column(String(17), nullable=True)
     service_tag = Column(String(32), nullable=True)  # unique=True を削除
+    itam_number = Column(String(32), nullable=True)  # 追加：ITAM資産管理番号
     firmware_version = Column(String(32), nullable=True)
     location = Column(String(128), nullable=True)
     switch_type = Column(String(8), nullable=False)     # "L2" / "L3"
@@ -39,6 +40,7 @@ class Switch(BaseDatabase):
             "hardware_model": row.hardware_model,
             "base_mac_address": row.base_mac_address,
             "service_tag": row.service_tag,
+            "itam_number": row.itam_number,          # 追加
             "firmware_version": row.firmware_version,
             "location": row.location,
             "switch_type": row.switch_type,
@@ -112,6 +114,7 @@ class Switch(BaseDatabase):
             "hardware_model": row.hardware_model,
             "base_mac_address": row.base_mac_address,
             "service_tag": row.service_tag,
+            "itam_number": row.itam_number,  # 追加
             "firmware_version": row.firmware_version,
             "location": row.location,
             "role": row.role,

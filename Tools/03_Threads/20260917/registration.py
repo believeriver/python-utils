@@ -130,6 +130,7 @@ def register_switches_from_csv(csv_path: str) -> dict:
                 switch_type=row["switch_type"],
                 role=row["role"],
                 location=row.get("location") or None,
+                itam_number=row.get("itam_number") or None,  # 追加
             )
             succeeded.append(row["hostname"])
 

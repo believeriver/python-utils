@@ -93,6 +93,8 @@ def render_edit_form():
 
         ip_address = st.text_input("IPアドレス", value=current["ip_address"])
         location = st.text_input("設置場所", value=current["location"] or "")
+        itam_number = st.text_input("ITAM番号", value=current.get("itam_number") or "")  # 追加
+
         switch_type = st.selectbox(
             "種類(L2/L3)", options=SWITCH_TYPE_OPTIONS,
             index=SWITCH_TYPE_OPTIONS.index(current.get("switch_type", "L2"))
@@ -118,6 +120,7 @@ def render_edit_form():
                     switch_type=switch_type,
                     role=role,
                     location=location.strip() or None,
+                    itam_number=itam_number.strip() or None,  # 追加
                     is_active=is_active,
                 )
                 st.success(f"`{selected}` を更新しました。")
