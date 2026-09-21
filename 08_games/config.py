@@ -8,3 +8,7 @@ class Config:
     BLACK = (10, 10, 30)
     PLAYER_COLOR = (80, 200, 255)
     BULLET_COLOR = (255, 220, 80)
+
+    ENEMY_COLOR = (255, 90, 90)
+    RED = (255, 60, 60)
+
