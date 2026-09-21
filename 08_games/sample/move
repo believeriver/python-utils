@@ -1,0 +1,5 @@
+pip install pygame
+
+mv /Users/nobuyuki/Downloads/
+
+step1_player_shoot.py ./
